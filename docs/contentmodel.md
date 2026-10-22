@@ -6,12 +6,15 @@ Gedeeld tussen de Umbraco-POC en de Payload-POC. Beide bouwen **exact dit model*
 
 - `nl` (standaard) en `en`.
 - Ontbreekt een item in de gevraagde taal, dan geeft de stub de `nl`-versie terug (zie [DTO](#dto)).
+- Bestaat een item **enkel** in `en`, dan verschijnt het in de `en`-weergave op zijn plaats in de boom, en in de `nl`-weergave niet (er is niets om op terug te vallen).
 
 ## Contenttypes
 
 Volgorde van Hoofdstukken en Guide-stappen = volgorde in de contentboom (geen apart veld).
 
-### Guide (één exemplaar)
+### Guide (meerdere mogelijk)
+
+Elke Guide staat in de root van de contentboom; volgorde van de Guides = volgorde in de boom.
 
 | Veld | Type | Per taal | Verplicht |
 |---|---|---|---|
@@ -71,7 +74,8 @@ Alle Resources staan in één map **Resource library**.
 
 | Methode | Pad | Wat |
 |---|---|---|
-| `GET` | `/guide` | Guide met Hoofdstukken en stappen als samenvatting (geen blokken) |
+| `GET` | `/guides` | Alle Guides (id, titel, intro) |
+| `GET` | `/guides/{id}` | Eén Guide met Hoofdstukken en stappen als samenvatting (geen blokken) |
 | `GET` | `/guide/stappen/{id}` | Eén Guide-stap met blokken; `403` met enkel teaservelden als afgeschermd |
 | `GET` | `/resources` | Alle Resources (teaser als afgeschermd) |
 | `GET` | `/resources/{id}` | Eén Resource; `403` met enkel teaservelden als afgeschermd |
@@ -90,7 +94,10 @@ Alle Resources staan in één map **Resource library**.
 - Opgemaakte tekst is **HTML**.
 
 ```jsonc
-// GET /guide?taal=en  (Bezoeker)
+// GET /guides
+[ { "id": "…", "titel": "Veilig LLM's integreren", "intro": "…", "taal": "nl" } ]
+
+// GET /guides/{id}?taal=en  (Bezoeker)
 {
   "id": "…", "titel": "…", "intro": "…", "taal": "en", "gevraagdeTaal": "en",
   "hoofdstukken": [
@@ -111,6 +118,7 @@ Alle Resources staan in één map **Resource library**.
   "id": "…", "titel": "…", "samenvatting": "…",
   "toegangsniveau": "publiek", "afgeschermd": false,
   "taal": "nl", "gevraagdeTaal": "nl",
+  "guide": { "id": "…", "titel": "Veilig LLM's integreren" },
   "hoofdstuk": { "id": "…", "titel": "Basis" },
   "blokken": [
     { "type": "tekst",      "html": "<p>…</p>" },
@@ -130,7 +138,7 @@ Alle Resources staan in één map **Resource library**.
 
 ## Voorbeeldpad
 
-Eén Guide met voorbeeldcontent, zo gekozen dat elke regel in de demo zichtbaar wordt. De content gaat mee in de repo (Umbraco: uSync-content; Payload: seed-script).
+Eén voorbeeld-Guide met content, zo gekozen dat elke regel in de demo zichtbaar wordt. De content gaat mee in de repo (Umbraco: uSync-content; Payload: seed-script).
 
 **Guide** "Veilig LLM's integreren" / "Integrating LLMs securely"
 

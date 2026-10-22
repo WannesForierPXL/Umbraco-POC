@@ -34,8 +34,11 @@ app.UseStaticFiles();
 
 // ---------- endpoints ----------
 
-app.MapGet("/guide", async (HttpContext ctx, string? taal, ContentService content, CancellationToken ct) =>
-    await content.GetGuideAsync(Lezer.Uit(ctx), ParseTaal(taal), ct) is { } guide ? Results.Ok(guide) : Results.NotFound());
+app.MapGet("/guides", async (HttpContext ctx, string? taal, ContentService content, CancellationToken ct) =>
+    Results.Ok(await content.GetGuidesAsync(ParseTaal(taal), ct)));
+
+app.MapGet("/guides/{id}", async (string id, HttpContext ctx, string? taal, ContentService content, CancellationToken ct) =>
+    await content.GetGuideAsync(id, Lezer.Uit(ctx), ParseTaal(taal), ct) is { } guide ? Results.Ok(guide) : Results.NotFound());
 
 app.MapGet("/guide/stappen/{id}", async (string id, HttpContext ctx, string? taal, ContentService content, CancellationToken ct) =>
     await content.GetStapAsync(id, Lezer.Uit(ctx), ParseTaal(taal), ct) switch
@@ -72,8 +75,11 @@ if (app.Environment.IsDevelopment())
     var editor = new Lezer(IsLid: true);
     var preview = app.MapGroup("/preview");
 
-    preview.MapGet("/guide", async (string? taal, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
-        await content.GetGuideAsync(editor, ParseTaal(taal), ct) is { } guide ? Results.Ok(guide) : Results.NotFound());
+    preview.MapGet("/guides", async (string? taal, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
+        Results.Ok(await content.GetGuidesAsync(ParseTaal(taal), ct)));
+
+    preview.MapGet("/guides/{id}", async (string id, string? taal, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
+        await content.GetGuideAsync(id, editor, ParseTaal(taal), ct) is { } guide ? Results.Ok(guide) : Results.NotFound());
 
     preview.MapGet("/guide/stappen/{id}", async (string id, string? taal, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
         await content.GetStapAsync(id, editor, ParseTaal(taal), ct) is { } stap ? Results.Ok(stap) : Results.NotFound());
@@ -123,15 +129,20 @@ sealed class ContentService(ICmsClient cms)
     private static Toegangsniveau Strengste(Toegangsniveau a, Toegangsniveau b) =>
         a == Toegangsniveau.Leden || b == Toegangsniveau.Leden ? Toegangsniveau.Leden : Toegangsniveau.Publiek;
 
-    public async Task<GuideDto?> GetGuideAsync(Lezer lezer, Taal taal, CancellationToken ct)
+    public async Task<IReadOnlyList<GuideSamenvattingDto>> GetGuidesAsync(Taal taal, CancellationToken ct) =>
+        (await LijstMetTerugval(t => cms.GetGuidesAsync(t, ct), x => x.Id, taal))
+            .Select(g => new GuideSamenvattingDto(g.Id, g.Titel, g.Intro, g.Taal))
+            .ToList();
+
+    public async Task<GuideDto?> GetGuideAsync(string id, Lezer lezer, Taal taal, CancellationToken ct)
     {
-        var guide = await MetTerugval(t => cms.GetGuideAsync(t, ct), taal);
+        var guide = await MetTerugval(t => cms.GetGuideAsync(id, t, ct), taal);
         if (guide is null) return null;
 
         var hoofdstukken = new List<HoofdstukDto>();
         foreach (var h in await LijstMetTerugval(t => cms.GetHoofdstukkenAsync(guide.Id, t, ct), x => x.Id, taal))
         {
-            var stappen = (await LijstMetTerugval(t => cms.GetStappenAsync(h.Id, t, ct), x => x.Id, taal))
+            var stappen = (await LijstMetTerugval(t => cms.GetStappenAsync(guide.Id, h.Id, t, ct), x => x.Id, taal))
                 .Select(s =>
                 {
                     var niveau = Strengste(h.Toegangsniveau, s.Toegangsniveau);
@@ -149,7 +160,8 @@ sealed class ContentService(ICmsClient cms)
         var stap = await MetTerugval(t => cms.GetStapAsync(id, t, ct), taal);
         if (stap is null) return null;
         var hoofdstuk = await MetTerugval(t => cms.GetHoofdstukAsync(stap.HoofdstukId, t, ct), taal);
-        if (hoofdstuk is null) return null;
+        var guide = await MetTerugval(t => cms.GetGuideAsync(stap.GuideId, t, ct), taal);
+        if (hoofdstuk is null || guide is null) return null;
 
         var niveau = Strengste(hoofdstuk.Toegangsniveau, stap.Toegangsniveau);
         var afgeschermd = !lezer.MagZien(niveau);
@@ -157,7 +169,7 @@ sealed class ContentService(ICmsClient cms)
         // Regel 2: een Teaser bevat nooit blokken.
         var blokken = afgeschermd ? null : stap.Blokken?.Select(MapBlok).ToList();
         return new StapDto(stap.Id, stap.Titel, stap.Samenvatting, niveau, afgeschermd, stap.Taal, taal,
-            new HoofdstukRefDto(hoofdstuk.Id, hoofdstuk.Titel), blokken);
+            new RefDto(guide.Id, guide.Titel), new RefDto(hoofdstuk.Id, hoofdstuk.Titel), blokken);
     }
 
     public async Task<IReadOnlyList<ResourceDto>> GetResourcesAsync(Lezer lezer, Taal taal, CancellationToken ct) =>
@@ -190,12 +202,13 @@ sealed class ContentService(ICmsClient cms)
         foreach (var r in await cms.GetResourcesAsync(Standaardtaal, ct))
             if (r.BestandMediaId == mediaId) niveaus.Add(r.Toegangsniveau);
 
-        if (await cms.GetGuideAsync(Standaardtaal, ct) is { } guide)
-            foreach (var h in await cms.GetHoofdstukkenAsync(guide.Id, Standaardtaal, ct))
-                foreach (var s in await cms.GetStappenAsync(h.Id, Standaardtaal, ct))
-                    if (await cms.GetStapAsync(s.Id, Standaardtaal, ct) is { Blokken: { } blokken }
-                        && blokken.OfType<CmsAfbeeldingBlok>().Any(b => b.MediaId == mediaId))
-                        niveaus.Add(Strengste(h.Toegangsniveau, s.Toegangsniveau));
+        foreach (var taal in new[] { Taal.Nl, Taal.En }) // ook content die enkel in EN bestaat
+            foreach (var guide in await cms.GetGuidesAsync(taal, ct))
+                foreach (var h in await cms.GetHoofdstukkenAsync(guide.Id, taal, ct))
+                    foreach (var s in await cms.GetStappenAsync(guide.Id, h.Id, taal, ct))
+                        if (await cms.GetStapAsync(s.Id, taal, ct) is { Blokken: { } blokken }
+                            && blokken.OfType<CmsAfbeeldingBlok>().Any(b => b.MediaId == mediaId))
+                            niveaus.Add(Strengste(h.Toegangsniveau, s.Toegangsniveau));
 
         // Publiek zodra één publieke plek het beeld al toont; anders leden.
         return niveaus.Count == 0 ? null : niveaus.Contains(Toegangsniveau.Publiek) ? Toegangsniveau.Publiek : Toegangsniveau.Leden;
@@ -224,13 +237,31 @@ sealed class ContentService(ICmsClient cms)
     private static async Task<T?> MetTerugval<T>(Func<Taal, Task<T?>> ophalen, Taal taal) where T : class =>
         await ophalen(taal) ?? (taal == Standaardtaal ? null : await ophalen(Standaardtaal));
 
-    /// <summary>Terugval voor lijsten: volgorde en volledigheid uit NL, per item de gevraagde taal als die bestaat.</summary>
+    /// <summary>
+    /// Terugval voor lijsten: elk item in de gevraagde taal, anders in NL. Items die enkel in de gevraagde taal
+    /// bestaan (bv. enkel EN) komen er ook in, op hun plaats in de boom (na het item dat er in die taal voor staat).
+    /// </summary>
     private static async Task<IReadOnlyList<T>> LijstMetTerugval<T>(Func<Taal, Task<IReadOnlyList<T>>> ophalen, Func<T, string> id, Taal taal)
     {
         var standaard = await ophalen(Standaardtaal);
         if (taal == Standaardtaal) return standaard;
-        var vertaald = (await ophalen(taal)).ToDictionary(id);
-        return standaard.Select(item => vertaald.GetValueOrDefault(id(item)) ?? item).ToList();
+
+        var vertaald = await ophalen(taal);
+        var vertaaldOpId = vertaald.ToDictionary(id);
+        var resultaat = standaard.Select(item => vertaaldOpId.GetValueOrDefault(id(item)) ?? item).ToList();
+
+        var inStandaard = standaard.Select(id).ToHashSet();
+        string? vorige = null;
+        foreach (var item in vertaald)
+        {
+            if (!inStandaard.Contains(id(item)))
+            {
+                var positie = vorige is null ? 0 : resultaat.FindIndex(x => id(x) == vorige) + 1;
+                resultaat.Insert(positie, item);
+            }
+            vorige = id(item);
+        }
+        return resultaat;
     }
 }
 
@@ -300,6 +331,8 @@ abstract record MediaResultaat
 
 // ---------- DTO's (docs/contentmodel.md) ----------
 
+sealed record GuideSamenvattingDto(string Id, string Titel, string? Intro, Taal Taal);
+
 sealed record GuideDto(string Id, string Titel, string? Intro, Taal Taal, Taal GevraagdeTaal, IReadOnlyList<HoofdstukDto> Hoofdstukken);
 
 sealed record HoofdstukDto(string Id, string Titel, string? Beschrijving, Toegangsniveau Toegangsniveau, bool Afgeschermd, Taal Taal,
@@ -307,10 +340,10 @@ sealed record HoofdstukDto(string Id, string Titel, string? Beschrijving, Toegan
 
 sealed record StapSamenvattingDto(string Id, string Titel, string Samenvatting, Toegangsniveau Toegangsniveau, bool Afgeschermd, Taal Taal);
 
-sealed record HoofdstukRefDto(string Id, string Titel);
+sealed record RefDto(string Id, string Titel);
 
 sealed record StapDto(string Id, string Titel, string Samenvatting, Toegangsniveau Toegangsniveau, bool Afgeschermd, Taal Taal,
-    Taal GevraagdeTaal, HoofdstukRefDto Hoofdstuk,
+    Taal GevraagdeTaal, RefDto Guide, RefDto Hoofdstuk,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<BlokDto>? Blokken);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

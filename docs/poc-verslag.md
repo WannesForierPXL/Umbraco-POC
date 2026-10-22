@@ -215,6 +215,14 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
   - Een tweede Guide aanmaken kan zonder meer (Umbraco kan het aantal items van een type in de root niet beperken). De stub gaat uit van één Guide.
   - uSync exporteert ook **niet-gepubliceerde** content naar bestanden. Testcontent belandt zo makkelijk in git.
 
+### Extra – Meerdere Guides en EN-only content
+
+- **Aanleiding:** bij het zelf testen in de backoffice ontstonden een tweede Guide en items die enkel in EN bestonden; die verschenen niet op de demopagina.
+- **Wijziging van de spec** (`docs/contentmodel.md`): meerdere Guides in de root (`GET /guides`, `GET /guides/{id}`), een stap verwijst naar zijn Guide, en een item dat enkel in EN bestaat verschijnt in de EN-weergave op zijn plaats in de boom.
+- **Demopagina:** opent met een overzicht van de Guides; klik opent de Guide.
+- **Tijd:** ±45 min. Contracttest uitgebreid: 20 controles, alle geslaagd.
+- **Opvallend:** in Umbraco kan een Editor een item enkel in EN publiceren, ook al is NL de standaardtaal, tenzij NL als *mandatory* staat ingesteld. Bewust zo gelaten.
+
 ## Totaaltijd
 
 | Stap | Tijd |

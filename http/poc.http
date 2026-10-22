@@ -71,11 +71,14 @@ GET {{cms}}/media/aadk4oql/checklist-llm-review.pdf
 # STAP 6 – Content Stub (CMS-onafhankelijk; dit is wat de BFF/frontend ziet)
 ###############################################################################
 
+### 6.0 Alle Guides
+GET {{stub}}/guides
+
 ### 6.1 Guide als Bezoeker (NL): leden-items als Teaser (afgeschermd: true)
-GET {{stub}}/guide
+GET {{stub}}/guides/{{guideId}}
 
 ### 6.2 Guide als Lid (EN): alles zichtbaar, "Logging van prompts" valt terug op NL
-GET {{stub}}/guide?taal=en
+GET {{stub}}/guides/{{guideId}}?taal=en
 X-Mock-Lid: true
 
 ### 6.3 Publieke stap als Bezoeker → 200 met blokken

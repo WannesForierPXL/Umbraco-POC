@@ -8,12 +8,13 @@ namespace Llaser.ContentStub.Cms;
 /// </summary>
 public interface ICmsClient
 {
-    Task<CmsGuide?> GetGuideAsync(Taal taal, CancellationToken ct);
+    Task<IReadOnlyList<CmsGuide>> GetGuidesAsync(Taal taal, CancellationToken ct);
+    Task<CmsGuide?> GetGuideAsync(string id, Taal taal, CancellationToken ct);
     Task<IReadOnlyList<CmsHoofdstuk>> GetHoofdstukkenAsync(string guideId, Taal taal, CancellationToken ct);
     Task<CmsHoofdstuk?> GetHoofdstukAsync(string id, Taal taal, CancellationToken ct);
 
     /// <summary>Guide-stappen van een Hoofdstuk, zonder blokken.</summary>
-    Task<IReadOnlyList<CmsStap>> GetStappenAsync(string hoofdstukId, Taal taal, CancellationToken ct);
+    Task<IReadOnlyList<CmsStap>> GetStappenAsync(string guideId, string hoofdstukId, Taal taal, CancellationToken ct);
 
     /// <summary>Eén Guide-stap met blokken.</summary>
     Task<CmsStap?> GetStapAsync(string id, Taal taal, CancellationToken ct);
@@ -34,6 +35,7 @@ public sealed record CmsHoofdstuk(string Id, string Titel, string? Beschrijving,
 
 public sealed record CmsStap(
     string Id,
+    string GuideId,
     string HoofdstukId,
     string Titel,
     string Samenvatting,

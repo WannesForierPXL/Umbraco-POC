@@ -12,10 +12,15 @@ public sealed class UmbracoCmsClient(HttpClient http) : ICmsClient
     // Umbraco-cultures per taal van de stub
     private static string Culture(Taal taal) => taal == Taal.En ? "en-US" : "nl-BE";
 
-    public async Task<CmsGuide?> GetGuideAsync(Taal taal, CancellationToken ct)
+    public async Task<IReadOnlyList<CmsGuide>> GetGuidesAsync(Taal taal, CancellationToken ct) =>
+        (await QueryAsync("filter=contentType:guide&sort=sortOrder:asc&take=100", taal, ct))
+            .Select(i => MapGuide(i, taal))
+            .ToList();
+
+    public async Task<CmsGuide?> GetGuideAsync(string id, Taal taal, CancellationToken ct)
     {
-        var items = await QueryAsync("filter=contentType:guide&take=1", taal, ct);
-        return items.Select(i => new CmsGuide(Id(i), Naam(i), Tekst(i, "intro"), taal)).FirstOrDefault();
+        var item = await ItemAsync(id, taal, ct);
+        return item is { } i && Type(i) == "guide" ? MapGuide(i, taal) : null;
     }
 
     public async Task<IReadOnlyList<CmsHoofdstuk>> GetHoofdstukkenAsync(string guideId, Taal taal, CancellationToken ct) =>
@@ -30,10 +35,10 @@ public sealed class UmbracoCmsClient(HttpClient http) : ICmsClient
         return item is { } i && Type(i) == "hoofdstuk" ? MapHoofdstuk(i, taal) : null;
     }
 
-    public async Task<IReadOnlyList<CmsStap>> GetStappenAsync(string hoofdstukId, Taal taal, CancellationToken ct) =>
+    public async Task<IReadOnlyList<CmsStap>> GetStappenAsync(string guideId, string hoofdstukId, Taal taal, CancellationToken ct) =>
         (await QueryAsync($"fetch=children:{hoofdstukId}&sort=sortOrder:asc&take=100&fields=properties[samenvatting,toegangsniveau]", taal, ct))
             .Where(i => Type(i) == "guideStap")
-            .Select(i => MapStap(i, hoofdstukId, taal, metBlokken: false))
+            .Select(i => MapStap(i, guideId, hoofdstukId, taal, metBlokken: false))
             .ToList();
 
     public async Task<CmsStap?> GetStapAsync(string id, Taal taal, CancellationToken ct)
@@ -44,7 +49,8 @@ public sealed class UmbracoCmsClient(HttpClient http) : ICmsClient
         // Het item zelf bevat geen parent-id; die halen we uit de voorouders (tweede request).
         var voorouders = await QueryAsync($"fetch=ancestors:{id}&fields=properties[toegangsniveau]", taal, ct);
         var hoofdstukId = voorouders.Where(a => Type(a) == "hoofdstuk").Select(Id).FirstOrDefault();
-        return hoofdstukId is null ? null : MapStap(i, hoofdstukId, taal, metBlokken: true);
+        var guideId = voorouders.Where(a => Type(a) == "guide").Select(Id).FirstOrDefault();
+        return hoofdstukId is null || guideId is null ? null : MapStap(i, guideId, hoofdstukId, taal, metBlokken: true);
     }
 
     public async Task<IReadOnlyList<CmsResource>> GetResourcesAsync(Taal taal, CancellationToken ct) =>
@@ -104,11 +110,13 @@ public sealed class UmbracoCmsClient(HttpClient http) : ICmsClient
 
     // ---------- mapping ----------
 
+    private static CmsGuide MapGuide(JsonElement i, Taal taal) => new(Id(i), Naam(i), Tekst(i, "intro"), taal);
+
     private static CmsHoofdstuk MapHoofdstuk(JsonElement i, Taal taal) =>
         new(Id(i), Naam(i), Tekst(i, "beschrijving"), Niveau(i), taal);
 
-    private static CmsStap MapStap(JsonElement i, string hoofdstukId, Taal taal, bool metBlokken) =>
-        new(Id(i), hoofdstukId, Naam(i), Tekst(i, "samenvatting") ?? "", Niveau(i), metBlokken ? Blokken(i) : null, taal);
+    private static CmsStap MapStap(JsonElement i, string guideId, string hoofdstukId, Taal taal, bool metBlokken) =>
+        new(Id(i), guideId, hoofdstukId, Naam(i), Tekst(i, "samenvatting") ?? "", Niveau(i), metBlokken ? Blokken(i) : null, taal);
 
     private static CmsResource MapResource(JsonElement i, Taal taal) =>
         new(Id(i), Naam(i), Tekst(i, "beschrijving"), Tekst(i, "soort") ?? "link", EersteMediaId(Prop(i, "bestand")), Tekst(i, "url"), Niveau(i), taal);

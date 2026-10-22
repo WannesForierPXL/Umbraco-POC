@@ -121,6 +121,17 @@ section.lower { padding-block: 0 40px; display: grid; grid-template-columns: min
 .preview-banner .wrap { padding-block: 8px; }
 .preview-banner a { color: var(--accent); margin-left: 8px; }
 .error { color: var(--warn); }
+.guides { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+.guide-card { width: 100%; height: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; cursor: pointer; color: var(--fg); font: inherit; display: grid; gap: 6px; align-content: start; }
+.guide-card:hover { border-color: var(--accent); }
+.guide-card h2 { margin: 0; font: 600 20px/1.25 var(--font-display); text-wrap: balance; }
+.guide-card p { margin: 0; color: var(--muted); font-size: 14px; }
+.guide-card .meta { display: flex; gap: 8px; align-items: center; font: 12px var(--font-mono); color: var(--muted); }
+.home-intro { padding-block: 28px 8px; }
+.home-intro h1 { font: 600 clamp(26px, 4vw, 34px)/1.15 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
+.home-intro p { margin: 0; color: var(--muted); max-width: 65ch; }
+.home-guides { padding-block: 16px 24px; }
+.back { background: none; border: 0; padding: 0; color: var(--accent); font: 500 14px var(--font-body); cursor: pointer; margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -145,9 +156,22 @@ section.lower { padding-block: 0 40px; display: grid; grid-template-columns: min
   </div>
 </header>
 
-<main class="wrap">
+<!-- Overzicht: alle Guides -->
+<section id="view-home">
+  <div class="wrap home-intro">
+    <h1 id="home-titel">Best-practice guides</h1>
+    <p id="home-tekst">Kies een Guide. Nieuwe Guides maak je in de backoffice, in de root van Content.</p>
+  </div>
+  <div class="wrap home-guides">
+    <ul class="guides" id="guides"></ul>
+  </div>
+</section>
+
+<!-- Eén Guide: inhoudstafel en leesvenster -->
+<main class="wrap" id="view-guide" hidden>
   <nav class="toc" aria-label="Inhoud van de Guide">
-    <h1 id="guide-titel">Guide laden…</h1>
+    <button type="button" class="back" id="terug">← Alle Guides</button>
+    <h1 id="guide-titel"></h1>
     <p class="intro" id="guide-intro"></p>
     <div id="hoofdstukken"></div>
   </nav>
@@ -170,11 +194,12 @@ section.lower { padding-block: 0 40px; display: grid; grid-template-columns: min
 
 <script>
 // "Save and preview" in de backoffice opent deze pagina met ?preview=1&taal=..&stap=..
+// Zelf navigeren gebruikt ?guide=..&stap=.. zodat herladen dezelfde plek toont.
 const params = new URLSearchParams(location.search);
 const preview = params.get("preview") === "1";
-const state = { taal: params.get("taal") === "en" ? "en" : "nl", lid: preview, stapId: params.get("stap") };
+const state = { taal: params.get("taal") === "en" ? "en" : "nl", lid: preview, guideId: params.get("guide"), stapId: params.get("stap") };
 const objectUrls = [];
-// In preview gaan guide, stappen en media via /preview (concepten); Resources blijven de gepubliceerde.
+// In preview gaan guides, stappen en media via /preview (concepten); Resources blijven de gepubliceerde.
 const basis = (path) => preview && !path.startsWith("/resources") ? "/preview" + path : path;
 
 function headers() { return state.lid ? { "X-Mock-Lid": "true" } : {}; }
@@ -202,13 +227,51 @@ const t = (nl, en) => state.taal === "en" ? en : nl;
 const lock = () => el("span", { class: "tag lock" }, t("leden", "members"));
 const vertaling = (item) => item.taal !== state.taal ? el("span", { class: "tag lang", title: t("Nog niet vertaald", "Not translated yet") }, item.taal.toUpperCase()) : null;
 
+function bewaarUrl() {
+  const p = new URLSearchParams();
+  if (preview) p.set("preview", "1");
+  p.set("taal", state.taal);
+  if (state.guideId) p.set("guide", state.guideId);
+  if (state.stapId) p.set("stap", state.stapId);
+  history.replaceState(null, "", "?" + p);
+}
+
+// ---------- overzicht ----------
+
+async function toonOverzicht() {
+  document.getElementById("view-home").hidden = false;
+  document.getElementById("view-guide").hidden = true;
+  document.getElementById("home-titel").textContent = t("Best-practice guides", "Best-practice guides");
+  document.getElementById("home-tekst").textContent = t(
+    "Kies een Guide. Nieuwe Guides maak je in de backoffice, in de root van Content.",
+    "Choose a guide. New guides are created in the backoffice, at the root of Content.");
+  const { body: guides } = await api("/guides");
+  const lijst = document.getElementById("guides");
+  if (!guides?.length) { lijst.replaceChildren(el("li", { class: "note" }, t("Nog geen gepubliceerde Guides.", "No published guides yet."))); return; }
+  lijst.replaceChildren(...guides.map(g => el("li", {}, el("button", { type: "button", class: "guide-card", onclick: () => openGuide(g.id) },
+    el("span", { class: "meta" }, "Guide", vertaling(g)),
+    el("h2", {}, g.titel),
+    g.intro ? el("p", {}, g.intro) : null))));
+}
+
+// ---------- één Guide ----------
+
+async function openGuide(id, stapId = null) {
+  state.guideId = id;
+  state.stapId = stapId;
+  bewaarUrl();
+  document.getElementById("view-home").hidden = true;
+  document.getElementById("view-guide").hidden = false;
+  await laadGuide();
+  if (state.stapId) await toonStap(state.stapId);
+}
+
 async function laadGuide() {
-  const { status, body: g } = await api("/guide");
-  if (status !== 200) { document.getElementById("guide-titel").textContent = "Guide niet gevonden"; return; }
+  const { status, body: g } = await api("/guides/" + state.guideId);
+  if (status !== 200) { document.getElementById("guide-titel").textContent = t("Guide niet gevonden", "Guide not found"); return; }
   document.getElementById("guide-titel").textContent = g.titel;
   document.getElementById("guide-intro").textContent = g.intro ?? "";
-  const wrap = document.getElementById("hoofdstukken");
-  wrap.replaceChildren(...g.hoofdstukken.map((h, hi) =>
+  document.getElementById("hoofdstukken").replaceChildren(...g.hoofdstukken.map((h, hi) =>
     el("section", { class: "chapter" },
       el("h2", {}, `${hi + 1}. ${h.titel}`, h.afgeschermd ? lock() : null, vertaling(h)),
       el("ol", {}, h.stappen.map((s, si) =>
@@ -216,15 +279,20 @@ async function laadGuide() {
           type: "button", class: "step", id: "stap-" + s.id, "aria-current": String(s.id === state.stapId),
           onclick: () => toonStap(s.id),
         }, el("span", { class: "n" }, `${hi + 1}.${si + 1}`), el("span", {}, s.titel), s.afgeschermd ? lock() : null, vertaling(s))))))));
-  if (!state.stapId && g.hoofdstukken[0]?.stappen[0]) state.stapId = g.hoofdstukken[0].stappen[0].id;
+  if (!state.stapId) {
+    const eerste = g.hoofdstukken.find(h => h.stappen.length)?.stappen[0];
+    if (eerste) state.stapId = eerste.id;
+  }
+  if (!g.hoofdstukken.length) document.getElementById("reader").replaceChildren(el("p", { class: "crumb" }, t("Deze Guide heeft nog geen gepubliceerde hoofdstukken.", "This guide has no published chapters yet.")));
 }
 
 async function toonStap(id) {
   state.stapId = id;
+  bewaarUrl();
   document.querySelectorAll(".step").forEach(b => b.setAttribute("aria-current", String(b.id === "stap-" + id)));
   const reader = document.getElementById("reader");
   const { status, body: s } = await api("/guide/stappen/" + id);
-  if (!s) { reader.replaceChildren(el("p", { class: "error" }, `Kon de stap niet laden (HTTP ${status}).`)); return; }
+  if (!s) { reader.replaceChildren(el("p", { class: "error" }, t(`Kon de stap niet laden (HTTP ${status}).`, `Could not load the step (HTTP ${status}).`))); return; }
 
   const kop = [
     el("p", { class: "crumb" }, s.hoofdstuk.titel, s.toegangsniveau === "leden" ? lock() : null,
@@ -243,21 +311,23 @@ async function toonStap(id) {
     return;
   }
 
-  const blokken = await Promise.all(s.blokken.map(async b => {
+  const blokken = await Promise.all((s.blokken ?? []).map(async b => {
     if (b.type === "tekst") { const d = el("div"); d.innerHTML = b.html; return d; } // HTML komt van het CMS (vertrouwde editors)
     if (b.type === "afbeelding") {
       const src = await mediaUrl(b.url);
-      return el("figure", {}, src ? el("img", { src, alt: b.alt }) : el("p", { class: "error" }, "Afbeelding niet beschikbaar"),
+      return el("figure", {}, src ? el("img", { src, alt: b.alt }) : el("p", { class: "error" }, t("Afbeelding niet beschikbaar", "Image not available")),
         b.bijschrift ? el("figcaption", {}, b.bijschrift) : null);
     }
     if (b.type === "callout") {
-      const label = { tip: t("Tip", "Tip"), waarschuwing: t("Waarschuwing", "Warning"), info: "Info" }[b.soort] ?? b.soort;
+      const label = { tip: "Tip", waarschuwing: t("Waarschuwing", "Warning"), info: "Info" }[b.soort] ?? b.soort;
       return el("div", { class: "callout " + b.soort, role: "note" }, el("b", {}, label), el("span", {}, b.tekst));
     }
     return null;
   }));
   reader.replaceChildren(...kop, el("div", { class: "body" }, blokken));
 }
+
+// ---------- resources en webhook-log ----------
 
 async function laadResources() {
   const { body: lijst } = await api("/resources");
@@ -268,18 +338,16 @@ async function laadResources() {
       el("div", { class: "top" },
         r.afgeschermd ? lock()
           : r.url ? el("a", { href: r.url, target: "_blank", rel: "noopener" }, t("Openen", "Open"))
-          : r.bestandUrl ? el("button", { type: "button", class: "link", onclick: async () => { const u = await mediaUrl(r.bestandUrl); if (u) window.open(u, "_blank"); } }, t("Download PDF", "Download PDF"))
+          : r.bestandUrl ? el("button", { type: "button", class: "link", onclick: async () => { const u = await mediaUrl(r.bestandUrl); if (u) window.open(u, "_blank"); } }, "Download PDF")
           : null,
         vertaling(r)))));
 }
 
 async function laadLog() {
   try {
-    const r = await fetch("/webhooks/cms/events");
-    const events = await r.json();
-    const log = document.getElementById("log");
+    const events = await (await fetch("/webhooks/cms/events")).json();
     if (!events.length) return;
-    log.replaceChildren(el("table", {},
+    document.getElementById("log").replaceChildren(el("table", {},
       el("thead", {}, el("tr", {}, el("th", {}, "Tijd"), el("th", {}, "Event"), el("th", {}, "Content"), el("th", {}, "Talen"))),
       el("tbody", {}, events.slice(0, 8).map(e => el("tr", { class: e.duplicaat ? "dup" : "" },
         el("td", {}, new Date(e.ontvangen).toLocaleTimeString("nl-BE")),
@@ -289,28 +357,39 @@ async function laadLog() {
   } catch { /* stub even weg: volgende poging */ }
 }
 
+// ---------- bediening ----------
+
 function zetPressed(groep, waarde) {
   document.querySelectorAll(`#${groep} button`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.taal === waarde || b.dataset.lid === waarde)));
 }
 async function herlaad() {
   objectUrls.splice(0).forEach(URL.revokeObjectURL);
-  await laadGuide();
-  await Promise.all([state.stapId ? toonStap(state.stapId) : null, laadResources()]);
+  bewaarUrl();
+  await Promise.all([state.guideId ? openGuide(state.guideId, state.stapId) : toonOverzicht(), laadResources()]);
 }
 function zetLezer(lid) { state.lid = lid; zetPressed("lezer-control", String(lid)); herlaad(); }
 
 document.querySelectorAll("#taal-control button").forEach(b => b.addEventListener("click", () => { state.taal = b.dataset.taal; zetPressed("taal-control", state.taal); herlaad(); }));
 document.querySelectorAll("#lezer-control button").forEach(b => b.addEventListener("click", () => zetLezer(b.dataset.lid === "true")));
+document.getElementById("terug").addEventListener("click", () => { state.guideId = null; state.stapId = null; bewaarUrl(); toonOverzicht(); });
 
-zetPressed("taal-control", state.taal);
-zetPressed("lezer-control", String(state.lid));
-if (preview) {
-  document.getElementById("preview-banner").hidden = false;
-  document.getElementById("lezer-control").hidden = true;
+async function start() {
+  zetPressed("taal-control", state.taal);
+  zetPressed("lezer-control", String(state.lid));
+  if (preview) {
+    document.getElementById("preview-banner").hidden = false;
+    document.getElementById("lezer-control").hidden = true;
+    // Preview van een stap: de Guide waar hij in zit openen
+    if (state.stapId && !state.guideId) {
+      const { body: s } = await api("/guide/stappen/" + state.stapId);
+      if (s?.guide) state.guideId = s.guide.id;
+    }
+  }
+  await herlaad();
+  laadLog();
+  setInterval(laadLog, 5000);
 }
-herlaad();
-laadLog();
-setInterval(laadLog, 5000);
+start();
 </script>
 </body>
 </html>
