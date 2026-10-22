@@ -1,0 +1,31 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Secrets
+.env
+appsettings.*.local.json
+http/http-client.private.env.json
+
+# Umbraco: lokale runtime-bestanden (database, logs, caches, geüploade media)
+**/umbraco/Data/
+**/umbraco/Logs/
+**/umbraco/mediacache/
+**/wwwroot/media/
+
+# Umbraco: gemockte uitnodigingsmails (SMTP pickup directory)
+**/umbraco/Mail/
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# OS
+Thumbs.db
+.DS_Store
