@@ -10,13 +10,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase)));
 
-builder.Services.AddHttpClient<ICmsClient, UmbracoCmsClient>(http =>
+void CmsHttp(HttpClient http)
 {
     var cms = builder.Configuration.GetSection("Cms");
     http.BaseAddress = new Uri(cms["DeliveryApiUrl"] ?? throw new InvalidOperationException("Cms:DeliveryApiUrl ontbreekt"));
     http.DefaultRequestHeaders.Add("Api-Key", cms["ApiKey"] ?? throw new InvalidOperationException("Cms:ApiKey ontbreekt (user-secrets)"));
-});
+}
+
+builder.Services.AddHttpClient<ICmsClient, UmbracoCmsClient>(CmsHttp);
 builder.Services.AddScoped<ContentService>();
+
+// Preview: dezelfde adapter en regels, maar het CMS levert concepten (niet-gepubliceerde versies).
+builder.Services.AddHttpClient("cms-preview", http => { CmsHttp(http); http.DefaultRequestHeaders.Add("Preview", "true"); });
+builder.Services.AddKeyedScoped<ContentService>("preview", (sp, _) =>
+    new ContentService(new UmbracoCmsClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient("cms-preview"))));
 builder.Services.AddSingleton<WebhookOntvanger>();
 
 var app = builder.Build();
@@ -57,6 +64,26 @@ app.MapGet("/media/{id}", async (string id, HttpContext ctx, ContentService cont
         MediaResultaat.Bestand { Inhoud: var b } => Results.Stream(b.Inhoud, b.ContentType, b.Bestandsnaam),
         _ => Results.NotFound(),
     });
+
+// Preview voor "Save and preview" in de backoffice. Toont concepten, dus ENKEL in Development:
+// in productie moet de BFF eerst nagaan dat de gebruiker een Editor is (Entra).
+if (app.Environment.IsDevelopment())
+{
+    var editor = new Lezer(IsLid: true);
+    var preview = app.MapGroup("/preview");
+
+    preview.MapGet("/guide", async (string? taal, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
+        await content.GetGuideAsync(editor, ParseTaal(taal), ct) is { } guide ? Results.Ok(guide) : Results.NotFound());
+
+    preview.MapGet("/guide/stappen/{id}", async (string id, string? taal, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
+        await content.GetStapAsync(id, editor, ParseTaal(taal), ct) is { } stap ? Results.Ok(stap) : Results.NotFound());
+
+    // Een Editor mag alle media zien: geen opzoeking van de content die het beeld gebruikt (die is mogelijk nog een concept).
+    preview.MapGet("/media/{id}", async (string id, [FromKeyedServices("preview")] ContentService content, CancellationToken ct) =>
+        await content.GetMediaVoorEditorAsync(id, ct) is { } b
+            ? Results.Stream(b.Inhoud, b.ContentType, b.Bestandsnaam)
+            : Results.NotFound());
+}
 
 // Webhook van het CMS bij publiceren/depubliceren. In productie: event op de outbox → Azure Service Bus.
 app.MapPost("/webhooks/cms", async (HttpRequest request, WebhookOntvanger ontvanger) =>
@@ -152,6 +179,9 @@ sealed class ContentService(ICmsClient cms)
         if (!lezer.MagZien(niveau.Value)) return new MediaResultaat.Afgeschermd();
         return await cms.GetMediaAsync(mediaId, ct) is { } bestand ? new MediaResultaat.Bestand(bestand) : new MediaResultaat.NietGevonden();
     }
+
+    /// <summary>Enkel voor preview: een Editor ziet alle media, zonder toegangscontrole.</summary>
+    public Task<CmsBestand?> GetMediaVoorEditorAsync(string mediaId, CancellationToken ct) => cms.GetMediaAsync(mediaId, ct);
 
     private async Task<Toegangsniveau?> MediaNiveauAsync(string mediaId, CancellationToken ct)
     {

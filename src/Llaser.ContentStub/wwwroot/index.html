@@ -117,10 +117,16 @@ section.lower { padding-block: 0 40px; display: grid; grid-template-columns: min
 .log .empty { padding: 14px; color: var(--muted); font: 13px var(--font-body); }
 .ev-pub { color: var(--tip); } .ev-unpub { color: var(--warn); } .dup { color: var(--muted); }
 .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.preview-banner { background: var(--lock-soft); color: var(--fg); border-bottom: 1px solid var(--lock); font-size: 14px; }
+.preview-banner .wrap { padding-block: 8px; }
+.preview-banner a { color: var(--accent); margin-left: 8px; }
 .error { color: var(--warn); }
 </style>
 </head>
 <body>
+<div class="preview-banner" id="preview-banner" hidden>
+  <div class="wrap">Voorvertoning: je ziet de laatst <strong>opgeslagen</strong> versie, ook als die nog niet gepubliceerd is. <a href="/">Naar de gepubliceerde site</a></div>
+</div>
 <header class="bar">
   <div class="wrap">
     <div class="brand">LLASER<small>Guide-demo · via de Content Stub</small></div>
@@ -163,17 +169,22 @@ section.lower { padding-block: 0 40px; display: grid; grid-template-columns: min
 </section>
 
 <script>
-const state = { taal: "nl", lid: false, stapId: null };
+// "Save and preview" in de backoffice opent deze pagina met ?preview=1&taal=..&stap=..
+const params = new URLSearchParams(location.search);
+const preview = params.get("preview") === "1";
+const state = { taal: params.get("taal") === "en" ? "en" : "nl", lid: preview, stapId: params.get("stap") };
 const objectUrls = [];
+// In preview gaan guide, stappen en media via /preview (concepten); Resources blijven de gepubliceerde.
+const basis = (path) => preview && !path.startsWith("/resources") ? "/preview" + path : path;
 
 function headers() { return state.lid ? { "X-Mock-Lid": "true" } : {}; }
 async function api(path) {
-  const r = await fetch(path + (path.includes("?") ? "&" : "?") + "taal=" + state.taal, { headers: headers() });
+  const r = await fetch(basis(path) + (path.includes("?") ? "&" : "?") + "taal=" + state.taal, { headers: headers() });
   return { status: r.status, body: r.headers.get("content-type")?.includes("json") ? await r.json() : null };
 }
 // Media gaat via de stub en vraagt dezelfde lezer-header, dus als blob ophalen in plaats van een gewone <img src>.
 async function mediaUrl(path) {
-  const r = await fetch(path, { headers: headers() });
+  const r = await fetch(basis(path), { headers: headers() });
   if (!r.ok) return null;
   const url = URL.createObjectURL(await r.blob());
   objectUrls.push(url);
@@ -291,6 +302,12 @@ function zetLezer(lid) { state.lid = lid; zetPressed("lezer-control", String(lid
 document.querySelectorAll("#taal-control button").forEach(b => b.addEventListener("click", () => { state.taal = b.dataset.taal; zetPressed("taal-control", state.taal); herlaad(); }));
 document.querySelectorAll("#lezer-control button").forEach(b => b.addEventListener("click", () => zetLezer(b.dataset.lid === "true")));
 
+zetPressed("taal-control", state.taal);
+zetPressed("lezer-control", String(state.lid));
+if (preview) {
+  document.getElementById("preview-banner").hidden = false;
+  document.getElementById("lezer-control").hidden = true;
+}
 herlaad();
 laadLog();
 setInterval(laadLog, 5000);

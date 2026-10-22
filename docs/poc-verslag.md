@@ -198,6 +198,22 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 - **Entra-login backoffice:** vraagt een app-registratie in een Entra-tenant (client-id, secret, redirect-URI `/umbraco-signin-oidc`) en de package `Microsoft.AspNetCore.Authentication.OpenIdConnect`. Umbraco ondersteunt *external login providers* voor de backoffice, met auto-linking (account aanmaken bij eerste login) en, met wat eigen code, het omzetten van Entra-groepen naar Umbraco-groepen. Schatting: 2–3 u. Wacht op een tenant waarin we een app-registratie mogen maken.
 - **Azurite / Blob Storage:** vraagt de package `Umbraco.StorageProviders.AzureBlob` (eerst te vragen). Dit lost het media-lek niet vanzelf op: Umbraco serveert de blobs nog steeds via `/media/...` (zie architectuurvragen).
 
+### Extra – Headless preview (K1)
+
+- **Criterium:** K1 (telt niet mee in de timebox)
+- **Tijd:** ±45 min
+- **Aanleiding:** "Save and preview" in de backoffice gaf "No template exists to render the document". Umbraco wil standaard een eigen Razor-template tonen; headless is er geen.
+- **Wat gedaan:**
+  - `src/Llaser.Cms/Preview/HeadlessPreviewUrlProvider.cs`: eigen `IUrlProvider` met `GetPreviewUrlAsync` (bestaat in v17). De preview-knop opent nu `https://localhost:5001/?preview=1&taal=en&stap={id}`. ±40 regels.
+  - Stub: `/preview/guide`, `/preview/guide/stappen/{id}` en `/preview/media/{id}`, met dezelfde adapter en regels maar de Delivery API-header `Preview: true` (concepten). **Enkel in Development**: in productie moet de BFF eerst nagaan dat de gebruiker een Editor is.
+  - Demopagina: in preview-modus een balk "Voorvertoning", altijd als Lid.
+- **Wat werkte:** een opgeslagen maar niet gepubliceerde stap is meteen zichtbaar in de preview met alle blokken; de publieke route geeft er een 404 voor.
+- **Wat niet / opvallend:**
+  - Preview is in Umbraco **niet** headless "out of the box": het vraagt een eigen URL-provider plus een preview-route in de frontend. (Payload heeft Live Preview ingebouwd; te vergelijken.)
+  - **Publiceren faalde met "check logs"**, zonder fout in de log. De echte reden (via de API): `PathNotPublished`, de bovenliggende Guide en het Hoofdstuk waren nog niet gepubliceerd. Een Editor krijgt die uitleg niet te zien. Bovendien bestond de stap enkel in EN, waardoor publiceren in NL `ContentInvalid` gaf. Twee bevindingen voor K1/K2.
+  - Een tweede Guide aanmaken kan zonder meer (Umbraco kan het aantal items van een type in de root niet beperken). De stub gaat uit van één Guide.
+  - uSync exporteert ook **niet-gepubliceerde** content naar bestanden. Testcontent belandt zo makkelijk in git.
+
 ## Totaaltijd
 
 | Stap | Tijd |
