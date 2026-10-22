@@ -31,3 +31,7 @@ http/http-client.private.env.json
 Thumbs.db
 .DS_Store
 *.log
+
+# dev-certificaat voor de contracttest
+devcert.pem
+devcert.key

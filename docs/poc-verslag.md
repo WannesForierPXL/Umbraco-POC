@@ -119,7 +119,8 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
   - `Umbraco:CMS:DeliveryApi` → `Enabled: true`, `PublicAccess: false`, `RichTextOutputAsJson: false` (HTML); `.AddDeliveryApi()` in `Program.cs`. API-key in user-secrets.
   - Requests in `http/poc.http` (5.1–5.10), secrets via `http/http-client.private.env.json` (niet in git).
 - **Wat werkte:**
-  - Zonder of met foute key → 401; met key → 200. De media-API (`/media/item/...`) vraagt ook de key.
+  - Zonder of met foute key → 401; met key → 200.
+  - De media-API (`/media/item/...`) moet **apart** aangezet worden (`DeliveryApi:Media:Enabled`, `PublicAccess: false`); daarna vraagt ook die de key. Ontdekt in stap 6: zonder die instelling geeft ze 401, ook mét key.
   - Blokken komen **standaard volledig uitgeklapt** terug, inclusief de media-URL, breedte en hoogte van beelden. Geen `expand` nodig.
   - `Accept-Language` kiest de taal; block-level variance levert dezelfde blokken met vertaalde tekst.
   - `fetch=children:` met `sort=sortOrder:asc` geeft de boomvolgorde; `fields=` beperkt de velden op het hoogste niveau.
@@ -136,10 +137,22 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 ### Stap 6 – `Llaser.ContentStub`
 
 - **Criterium:** K3, K4
-- **Tijd:**
+- **Tijd:** ±1,5 u (incl. media-proxy)
 - **Wat gedaan:**
+  - `src/Llaser.ContentStub`: minimal API op .NET 10, **zonder extra packages**.
+  - `Cms/ICmsClient.cs`: de poort, met een CMS-neutraal model (`CmsStap`, `CmsBlok`, …). Elke methode levert precies de gevraagde taal, of niets.
+  - `Cms/UmbracoCmsClient.cs`: de enige plek die Umbraco kent (aliassen, cultures `nl-BE`/`en-US`, JSON van blokken en media, API-key). ±170 regels.
+  - `Program.cs`: endpoints + `ContentService` met de regels **buiten** de adapter, zodat een Payload-adapter ze gratis krijgt: strengste wint, Teaser, terugval op NL, media enkel via de stub.
+  - Media-proxy (stretch, gehaald): `/media/{id}` geeft een bestand enkel vrij als de lezer de strengste content mag zien die het gebruikt; media die geen gepubliceerde content gebruikt → 404.
+  - `tests/stub-contract.mjs`: 19 controles op de regels uit de spec, **CMS-onafhankelijk** (praat enkel met de stub). Alle 19 slagen.
 - **Wat werkte:**
-- **Wat niet:**
+  - De DTO uit de spec kon 1-op-1 gemaakt worden; geen enkele regel vroeg Umbraco-specifieke kennis buiten de adapter.
+  - Mapping naar de DTO is eenvoudig: blokken komen al volledig uitgeklapt, rich text is al HTML.
+- **Wat niet / opvallend:**
+  - **Aantal requests:** `GET /guide?taal=en` kost ±8 Delivery API-requests (guide + hoofdstukken + stappen per hoofdstuk, elk in NL én EN voor de terugval). Een stap ophalen kost 3 requests (item, voorouders voor het parent-id, hoofdstuk). Het item bevat geen parent-id.
+  - De terugval op NL voor lijsten moest zelf geschreven worden (NL-lijst als basis, EN-versie per item als die bestaat).
+  - De media-proxy weet niet bij welk item een media-item hoort: Umbraco biedt geen "waar wordt dit gebruikt" in de Delivery API. De POC doorloopt de hele (kleine) boom; in productie moet de Content Service een index bijhouden, bijgewerkt via de webhook.
+  - Het eigenlijke lek blijft: Umbraco serveert `/media/...` zelf publiek. De proxy helpt pas als `/media` aan de ingress dichtgezet wordt, of als media in private Blob Storage zit (zie architectuurvragen).
 
 ### Stap 7 – Webhook bij publiceren/depubliceren
 
