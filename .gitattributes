@@ -1,0 +1,5 @@
+# Binaire bestanden nooit als tekst behandelen (geen CRLF-conversie)
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ico binary
