@@ -14,11 +14,12 @@ obj/
 appsettings.*.local.json
 http/http-client.private.env.json
 
-# Umbraco: lokale runtime-bestanden (database, logs, caches, geüploade media)
+# Umbraco: lokale runtime-bestanden (database, logs, caches)
+# wwwroot/media staat bewust NIET in deze lijst: gratis uSync exporteert enkel media-metadata,
+# de bestanden van het voorbeeldpad moeten mee in git voor een volledige round-trip.
 **/umbraco/Data/
 **/umbraco/Logs/
 **/umbraco/mediacache/
-**/wwwroot/media/
 
 # Umbraco: gemockte uitnodigingsmails (SMTP pickup directory)
 **/umbraco/Mail/

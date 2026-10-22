@@ -26,5 +26,4 @@ umbraco-package-schema.json
 # Log files
 /umbraco/Logs/
 
-# Media files
-/wwwroot/media/
+# Media files: bewust mee in git (zie root .gitignore)

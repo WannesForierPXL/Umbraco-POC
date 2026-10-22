@@ -1,5 +1,5 @@
 ### LLASER CMS-POC: Umbraco
 # Requests om de flow te testen. Secrets komen uit http-client.private.env.json (niet in git) of worden lokaal ingevuld.
 
-@cms = https://localhost:44300
+@cms = https://localhost:44310
 @stub = https://localhost:5001

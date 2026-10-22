@@ -54,11 +54,29 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 
 ### Stap 3 – Contentmodel (Guide-boom, bloktypes, Resource, NL/EN, toegangsniveau)
 
-- **Criterium:** K1, K4
-- **Tijd:**
+- **Criterium:** K1, K4 (en K5 voor de round-trip)
+- **Tijd:** ±1,5 u modelleren in de backoffice (door een Umbraco-beginner, met checklist) + ±30 min voorbeeldcontent via script
 - **Wat gedaan:**
+  - Talen `nl-BE` (standaard) en `en-US`.
+  - Data types `Toegangsniveau`, `Callout soort`, `Resource soort` (Radio Button List) en `Guide-blokken` (Block List, min. 1).
+  - Element types `blokTekst`, `blokAfbeelding`, `blokCallout`; document types `guide`, `hoofdstuk`, `guideStap`, `resourceLibrary`, `resource` met toegestane kinderen. Geen templates (headless). `titel` = de naam van het item (al per taal).
+  - **Block-level variance:** `blokken` is taalonafhankelijk, de tekstvelden *in* de blokken variëren per taal. EN heeft dus dezelfde blokken en hetzelfde beeld als NL.
+  - Voorbeeldpad uit `docs/contentmodel.md` (10 documenten, 2 media) ingevuld via de Management API met een API-gebruiker (client credentials).
+  - Round-trip-test: lege database `LlaserCmsRoundtrip` → unattended install → uSync `ImportOnFirstBoot` → identiek resultaat (8 types, 10 documenten, 19 gepubliceerde taalversies, 2 media). Import duurde ±11 s.
 - **Wat werkte:**
-- **Wat niet:**
+  - Contentmodel en content komen volledig uit git terug, zonder handwerk.
+  - Block-level variance doet precies wat de spec vraagt.
+  - API-gebruikers met client credentials maken scripting tegen de Management API eenvoudig.
+- **Wat niet / opvallend (K1):**
+  - De schakelaar voor variatie per taal werd consequent omgekeerd ingesteld, ook met een checklist ernaast: alle variaties stonden verkeerd na de eerste poging. Voor een Admin die Umbraco niet kent is dit verwarrend.
+  - Een eigenschap kon zonder alias worden toegevoegd; de fout kwam pas bij opslaan, als technische JSON-melding (`$.properties[0].alias`).
+  - Bij nieuwe eigenschappen maakt de backoffice snel een *nieuw* data type aan (bv. `GuideStapSamenvattingTextArea`) i.p.v. het bestaande te hergebruiken.
+  - Een typfout in een alias hernoemen kan, en uSync legt een `Rename`-markering vast zodat andere omgevingen meeverhuizen.
+  - Radio Button List heeft geen standaardwaarde; `toegangsniveau` is daarom verplicht in plaats van "standaard publiek" (afwijking van de spec).
+  - De backoffice-login werkt enkel via HTTPS (OpenIddict weigert HTTP), ook lokaal. In Container Apps met TLS-terminatie aan de ingress vraagt dat forwarded headers.
+- **Wat niet / opvallend (K5):**
+  - Gratis uSync exporteert enkel de *metadata* van media, niet de bestanden. Zonder `wwwroot/media` in git verwijst de content op een verse omgeving naar ontbrekende bestanden. Voor de POC staat `wwwroot/media` daarom in git; in productie hoort media in Blob Storage.
+  - Umbraco waarschuwt dat een root met meerdere talen zonder domeinen "routing and caching issues" geeft. Voor headless gebruik via de Delivery API is dat (nog) niet relevant; te bekijken in stap 5.
 
 ### Stap 4 – User groups Editor en Admin
 
