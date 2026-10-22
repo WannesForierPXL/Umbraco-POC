@@ -21,10 +21,19 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 ### Stap 1 – Umbraco met SQL Server (Docker) en unattended install
 
 - **Criterium:** K6
-- **Tijd:**
+- **Tijd:** ±30 min (waarvan ±1 min eerste start)
 - **Wat gedaan:**
+  - Template `Umbraco.Templates` 17.7.1 → `dotnet new umbraco -r LTS -pm PerProject`; package-versies van `17.*` naar exact `17.7.1` gepind.
+  - `Llaser.slnx` + `global.json` (SDK 10.0.401).
+  - `docker-compose.yml` met enkel SQL Server 2022 (Developer), volume en healthcheck; `sa`-wachtwoord uit `.env`.
+  - Connection string en admin-wachtwoord in user-secrets; overige unattended-instellingen in `appsettings.Development.json`.
 - **Wat werkte:**
-- **Wat niet:**
+  - Unattended install liep in één keer: 77 tabellen in `LlaserCms`, admin `admin@llaser.test` aangemaakt, geen wizard.
+  - `InstallMissingDatabase` maakt de database zelf aan; geen SQL-script nodig.
+- **Wat niet / opvallend:**
+  - De template zet `17.*` (zwevend) en de template-tool stelt meteen voor te updaten naar 18.2.1 (STS). Zonder expliciet pinnen beland je niet op de LTS.
+  - Bij de eerste start logt Umbraco één keer `Failed to detected SqlServer version` (Error), omdat de database dan nog niet bestaat. Onschuldig, maar verwarrend.
+  - De template voegt standaard ook `Umbraco.Cms.DevelopmentMode.Backoffice` en `Microsoft.ICU.ICU4C.Runtime` toe.
 
 ### Stap 2 – uSync
 
