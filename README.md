@@ -70,6 +70,80 @@ De flow voor de Klant staat in [docs/demoscript.md](docs/demoscript.md).
 
 > **Lokale demowaarden.** Wachtwoorden en sleutels (admin-login, SQL Server, API-key, webhook-secret) staan bewust vast in `appsettings.Development.json` en `docker-compose.yml`, zodat de POC zonder setup start. Dat kan enkel omdat alles lokaal draait. Gebruik ze nooit voor een gedeelde of online omgeving.
 
+## Een nieuwe Guide maken
+
+Zo bouw je in de backoffice een eigen Guide op, van lege map tot een stap die op de demopagina staat. Een Guide bestaat uit **Hoofdstukken**, en elk Hoofdstuk uit **Guide-stappen**; een stap is opgebouwd uit **blokken** (tekst, afbeelding, callout).
+
+```
+Guides
+└ Guide                 ← titel + intro
+  └ Hoofdstuk           ← titel + beschrijving + toegangsniveau
+    └ Guide-stap        ← titel + samenvatting + blokken + toegangsniveau
+```
+
+### Voor je begint
+
+- Kies boven de contentboom de taal **Dutch (Belgium)**. Nederlands is verplicht, Engels is een optionele vertaling. Zolang een item geen Engelse versie heeft, ziet een Engelstalige bezoeker de Nederlandse versie met het label "Nog niet vertaald".
+- Wissel voor het vertalen van taal **in het item zelf** (de taalkeuze bovenaan, naast de naam), niet boven de boom. Zo openen nieuwe items in het Nederlands.
+
+### 1. De Guide
+
+1. Ga naar **Content**, beweeg over **Guides** en klik op **…** → **Create** → **Guide**.
+2. Vul de **naam** in (dat is de titel op de site) en eventueel een **intro**.
+3. Klik **Save**. Publiceren mag nu of later, samen met de rest (zie stap 4).
+
+### 2. Een Hoofdstuk
+
+1. Beweeg over je nieuwe Guide → **…** → **Create** → **Hoofdstuk**.
+2. Vul de **naam** en eventueel een **beschrijving** in.
+3. Kies het **toegangsniveau**:
+   - **publiek**: iedereen ziet het;
+   - **leden**: enkel aangemelde leden. Dit geldt voor **alle** stappen in het hoofdstuk, ook als een stap zelf op publiek staat.
+4. Klik **Save**.
+
+### 3. Een Guide-stap
+
+1. Beweeg over het Hoofdstuk → **…** → **Create** → **Guide-stap**.
+2. Vul de **naam** en de **samenvatting** in (1 à 2 zinnen; die zien ook bezoekers die de stap niet mogen openen).
+3. Voeg bij **Blokken** minstens één blok toe met **Add content**:
+   - **Blok tekst**: opgemaakte tekst. Gebruik kopjes (Heading 2) voor de secties; die verschijnen rechts op de site onder "Op deze pagina".
+   - **Blok afbeelding**: kies een afbeelding uit Media (of upload er een), vul een **alt-tekst** in, en eventueel een bijschrift.
+   - **Blok callout**: een kort kader, met als soort **tip**, **waarschuwing** of **info**.
+
+   Sleep blokken om de volgorde te wijzigen.
+4. Kies het **toegangsniveau** (publiek of leden).
+5. Klik **Save and preview** om de stap te zien zoals hij op de site zal staan. De demopagina opent met een gele balk "Voorvertoning"; alleen jij ziet dit.
+
+Afbeeldingen die enkel voor leden bedoeld zijn, zet je in een **Blok afbeelding** en niet in de tekst: alleen dan schermt de site ze af.
+
+### 4. Publiceren
+
+Een item kan pas online als alles erboven online staat. Publiceer daarom van boven naar beneden, of alles in één keer:
+
+1. Beweeg over de **Guide** → **…** → **Publish** (of open de Guide en kies bij de knop **Publish** het pijltje → **Publish with descendants**).
+2. Vink **Include unpublished content items** aan, zodat ook de nieuwe hoofdstukken en stappen mee gaan.
+3. Kies de talen: **Dutch** altijd; **English** enkel als je al vertaald hebt.
+4. Herlaad de demopagina (https://localhost:5001). Je Guide staat in het overzicht; klik erop om hem te openen.
+
+Probeer je een stap te publiceren terwijl zijn Hoofdstuk of Guide nog een concept is, dan zegt Umbraco welk item eerst gepubliceerd moet worden.
+
+### 5. Vertalen naar het Engels (optioneel)
+
+1. Open het item en kies bovenaan, naast de naam, **English (United States)**.
+2. Vul de naam, de samenvatting en de tekst in de blokken in. De blokken zelf, de afbeeldingen en het toegangsniveau gelden voor beide talen; je vertaalt enkel de tekst.
+3. Klik **Publish** en vink **English** aan.
+4. Zet de demopagina op **EN**: het label "Nog niet vertaald" is weg.
+
+### Wijzigen, verplaatsen, verwijderen
+
+- **Wijzigen:** open het item, pas aan, en kies **Publish**. Zonder publiceren blijft de oude versie online; met **Save and preview** zie je de nieuwe eerst.
+- **Volgorde:** beweeg over de ouder → **…** → **Sort**, en sleep. De site volgt de volgorde van de boom.
+- **Offline halen:** open het item → pijltje naast **Publish** → **Unpublish**. Verwijderen gaat via **…** → **Delete** (het item gaat naar de prullenbak).
+
+### Mag je nieuwe Guide mee in git?
+
+uSync schrijft elk item ook als bestand weg in `src/Llaser.Cms/uSync/v17/Content/` (en afbeeldingen in `Media/` en `wwwroot/media/`). Commit je die bestanden, dan krijgt elke nieuwe omgeving je Guide mee bij de eerste start. Commit je ze niet, dan blijft hij enkel in je eigen database.
+
 ## Een Editor-account (optioneel)
 
 Gebruikers zitten niet in git (gratis uSync bewaart ze niet). Zo maak je een Editor:
