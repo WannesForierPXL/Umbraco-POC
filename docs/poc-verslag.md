@@ -113,11 +113,25 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 
 ### Stap 5 – Delivery API dicht met API-key
 
-- **Criterium:** K3
-- **Tijd:**
+- **Criterium:** K3 (en K4)
+- **Tijd:** ±30 min
 - **Wat gedaan:**
+  - `Umbraco:CMS:DeliveryApi` → `Enabled: true`, `PublicAccess: false`, `RichTextOutputAsJson: false` (HTML); `.AddDeliveryApi()` in `Program.cs`. API-key in user-secrets.
+  - Requests in `http/poc.http` (5.1–5.10), secrets via `http/http-client.private.env.json` (niet in git).
 - **Wat werkte:**
-- **Wat niet:**
+  - Zonder of met foute key → 401; met key → 200. De media-API (`/media/item/...`) vraagt ook de key.
+  - Blokken komen **standaard volledig uitgeklapt** terug, inclusief de media-URL, breedte en hoogte van beelden. Geen `expand` nodig.
+  - `Accept-Language` kiest de taal; block-level variance levert dezelfde blokken met vertaalde tekst.
+  - `fetch=children:` met `sort=sortOrder:asc` geeft de boomvolgorde; `fields=` beperkt de velden op het hoogste niveau.
+  - `filter=contentType:` werkt zonder extra code.
+- **Wat niet / opvallend:**
+  - **De Delivery API-index was leeg** na het aanzetten: content die vóór het aanzetten gepubliceerd werd, moet je eerst herindexeren (`POST /indexer/DeliveryApiContentIndex/rebuild`). Zonder dat geeft elke query `total: 0`, zonder foutmelding.
+  - **Geen taalterugval:** een enkel-NL item geeft in `en-US` een 404, en ontbreekt stil uit lijsten. De stub moet zelf terugvallen op NL.
+  - `fetch=ancestors:` geeft het item zelf niet terug → voor "strengste wint" zijn 2 requests nodig (item + voorouders).
+  - `fields=` werkt niet binnen blokken: blokken komen altijd volledig mee.
+  - **Lek:** `/media/aadk4oql/checklist-llm-review.pdf` (een leden-Resource) is zonder key bereikbaar (200). De Delivery API beschermt enkel de *JSON*, niet de bestanden.
+  - Eén statische API-key, die ook drafts/preview opent. Geen scopes, geen rotatie zonder herstart.
+  - Umbraco logt bij elke publicatie dat een root met meerdere talen zonder domeinen "routing and caching issues" kan geven. Voor headless gebruik via de Delivery API merkten we daar niets van; de taal komt uit `Accept-Language`.
 
 ### Stap 6 – `Llaser.ContentStub`
 

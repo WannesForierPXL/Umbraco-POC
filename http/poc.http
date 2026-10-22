@@ -1,5 +1,131 @@
 ### LLASER CMS-POC: Umbraco
-# Requests om de flow te testen. Secrets komen uit http-client.private.env.json (niet in git) of worden lokaal ingevuld.
+# Requests om de flow te testen (VS Code REST Client of JetBrains HTTP Client).
+# Secrets komen uit http/http-client.private.env.json (niet in git); zie http-client.private.env.json.example.
+# Kies de omgeving "dev".
 
 @cms = https://localhost:44310
 @stub = https://localhost:5001
+@delivery = {{cms}}/umbraco/delivery/api/v2
+
+# Ids uit het voorbeeldpad (docs/contentmodel.md)
+@guideId = acbfb072-94c6-45d7-b1d8-7d0a35da3d81
+@basisId = 2109e1ec-b76b-4435-bb7b-a4ef7ef81ef3
+@stapPubliekId = a1f5e7f2-32a5-4222-95d6-dc8a31d2659e
+@stapLedenId = d2cc20ea-8a96-4b38-b990-4e25ca00ebb6
+@stapEnkelNlId = 587ee0dd-0370-4673-8e84-68426eabe2d1
+@stapStrengsteWintId = 3d839363-e5b9-4e3c-85fa-5626a1ae16bb
+@resourceLedenId = 96ce0bcf-343d-4b4e-af15-3d787ed2a4a0
+@mediaPdfId = 9a546ef3-e22c-49d9-b84e-8bb09e9da2c9
+
+###############################################################################
+# STAP 5 – Delivery API (rechtstreeks op Umbraco; in productie enkel intern)
+###############################################################################
+
+### 5.1 Zonder API-key → 401 (public access staat uit)
+GET {{delivery}}/content?filter=contentType:guide
+
+### 5.2 Met API-key → 200
+GET {{delivery}}/content?filter=contentType:guide
+Api-Key: {{apiKey}}
+
+### 5.3 Eén Guide-stap in het Nederlands, blokken staan standaard uitgeklapt
+GET {{delivery}}/content/item/{{stapPubliekId}}
+Api-Key: {{apiKey}}
+Accept-Language: nl-BE
+
+### 5.4 Dezelfde stap in het Engels: zelfde blokken en beeld, vertaalde tekst
+GET {{delivery}}/content/item/{{stapPubliekId}}
+Api-Key: {{apiKey}}
+Accept-Language: en-US
+
+### 5.5 Enkel-NL stap in het Engels → 404 (geen ingebouwde taalterugval)
+GET {{delivery}}/content/item/{{stapEnkelNlId}}
+Api-Key: {{apiKey}}
+Accept-Language: en-US
+
+### 5.6 Kinderen van de Guide (Hoofdstukken) in boomvolgorde, enkel de nodige velden
+GET {{delivery}}/content?fetch=children:{{guideId}}&sort=sortOrder:asc&fields=properties[beschrijving,toegangsniveau]
+Api-Key: {{apiKey}}
+Accept-Language: nl-BE
+
+### 5.7 Voorouders van een stap (voor "strengste wint"); het item zelf zit er niet bij
+GET {{delivery}}/content?fetch=ancestors:{{stapStrengsteWintId}}&fields=properties[toegangsniveau]
+Api-Key: {{apiKey}}
+Accept-Language: nl-BE
+
+### 5.8 Uitklappen beperken met fields: enkel "blokken" komt terug, maar BINNEN de blokken
+###     komen toch alle velden mee (blokken worden altijd volledig uitgeklapt)
+GET {{delivery}}/content/item/{{stapPubliekId}}?fields=properties[blokken[properties[afbeelding]]]
+Api-Key: {{apiKey}}
+Accept-Language: nl-BE
+
+### 5.9 Alle Resources
+GET {{delivery}}/content?filter=contentType:resource&sort=sortOrder:asc
+Api-Key: {{apiKey}}
+Accept-Language: nl-BE
+
+### 5.10 LEK: het mediabestand van een leden-Resource is publiek, zonder key → 200
+GET {{cms}}/media/aadk4oql/checklist-llm-review.pdf
+
+###############################################################################
+# STAP 6 – Content Stub (CMS-onafhankelijk; dit is wat de BFF/frontend ziet)
+###############################################################################
+
+### 6.1 Guide als Bezoeker (NL): leden-items als Teaser (afgeschermd: true)
+GET {{stub}}/guide
+
+### 6.2 Guide als Lid (EN): alles zichtbaar, "Logging van prompts" valt terug op NL
+GET {{stub}}/guide?taal=en
+X-Mock-Lid: true
+
+### 6.3 Publieke stap als Bezoeker → 200 met blokken
+GET {{stub}}/guide/stappen/{{stapPubliekId}}
+
+### 6.4 Leden-stap als Bezoeker → 403 met enkel de Teaser
+GET {{stub}}/guide/stappen/{{stapLedenId}}
+
+### 6.5 Leden-stap als Lid → 200
+GET {{stub}}/guide/stappen/{{stapLedenId}}
+X-Mock-Lid: true
+
+### 6.6 Stap "publiek" in een leden-Hoofdstuk als Bezoeker → 403 (strengste wint)
+GET {{stub}}/guide/stappen/{{stapStrengsteWintId}}
+
+### 6.7 Enkel-NL stap in het Engels → 200 met taal "nl", gevraagdeTaal "en"
+GET {{stub}}/guide/stappen/{{stapEnkelNlId}}?taal=en
+
+### 6.8 Resources als Bezoeker
+GET {{stub}}/resources
+
+### 6.9 Leden-Resource als Lid: bestandUrl wijst naar de stub, niet naar het CMS
+GET {{stub}}/resources/{{resourceLedenId}}
+X-Mock-Lid: true
+
+### 6.10 Media-proxy als Bezoeker → 403
+GET {{stub}}/media/{{mediaPdfId}}
+
+### 6.11 Media-proxy als Lid → 200 (pdf)
+GET {{stub}}/media/{{mediaPdfId}}
+X-Mock-Lid: true
+
+###############################################################################
+# STAP 7 – Webhook (normaal stuurt Umbraco dit zelf bij publiceren)
+###############################################################################
+
+### 7.1 Zonder secret → 401
+POST {{stub}}/webhooks/cms
+Content-Type: application/json
+Umb-Webhook-Event: Umbraco.ContentPublish
+
+{"id": "{{stapPubliekId}}", "cultures": [{"culture": "nl-BE", "date": "2026-10-22T12:00:00Z"}]}
+
+### 7.2 Met secret → 202, event gelogd
+POST {{stub}}/webhooks/cms
+Content-Type: application/json
+Umb-Webhook-Event: Umbraco.ContentPublish
+X-Webhook-Secret: {{webhookSecret}}
+
+{"id": "{{stapPubliekId}}", "cultures": [{"culture": "nl-BE", "date": "2026-10-22T12:00:00Z"}]}
+
+### 7.3 Ontvangen events bekijken
+GET {{stub}}/webhooks/cms/events

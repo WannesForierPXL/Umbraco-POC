@@ -8,6 +8,7 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 builder.CreateUmbracoBuilder()
     .AddBackOffice()
     .AddWebsite()
+    .AddDeliveryApi()
     .AddComposers()
     .Build();
 
