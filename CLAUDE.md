@@ -84,7 +84,7 @@ Backoffice-login werkt enkel via **HTTPS**.
 | Waar | Sleutel |
 |---|---|
 | `.env` | `MSSQL_SA_PASSWORD` |
-| user-secrets `Llaser.Cms` | `ConnectionStrings:umbracoDbDSN`, `ConnectionStrings:umbracoDbDSN_ProviderName`, `Umbraco:CMS:Unattended:UnattendedUserPassword`, `Umbraco:CMS:Imaging:HMACSecretKey`, `Umbraco:CMS:DeliveryApi:ApiKey`, `Llaser:Webhook:Secret`, `Seed:ClientSecret` |
+| user-secrets `Llaser.Cms` | `ConnectionStrings:umbracoDbDSN`, `ConnectionStrings:umbracoDbDSN_ProviderName`, `Umbraco:CMS:Imaging:HMACSecretKey`, `Umbraco:CMS:DeliveryApi:ApiKey`, `Llaser:Webhook:Secret`, `Seed:ClientSecret` |
 | user-secrets `Llaser.ContentStub` | `Cms:ApiKey` (= Delivery API-key), `Webhook:Secret` (= `Llaser:Webhook:Secret`) |
 | `http/http-client.private.env.json` | `apiKey`, `webhookSecret` |
 

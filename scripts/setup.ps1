@@ -6,17 +6,14 @@
   - maakt .env aan met een willekeurig SQL Server-wachtwoord (als .env nog niet bestaat)
   - zet alle secrets in dotnet user-secrets voor Llaser.Cms en Llaser.ContentStub
     (enkel wat nog ontbreekt; opnieuw uitvoeren is veilig)
-  - toont op het einde de admin-login voor de backoffice
+  - de admin-login is vast (zie README): admin@llaser.test / LlaserPoc2026!
 
   Secrets komen nooit in git: .env staat in .gitignore, user-secrets staan in je gebruikersprofiel.
 
 .EXAMPLE
   pwsh ./scripts/setup.ps1
-  pwsh ./scripts/setup.ps1 -AdminPassword "MijnEigenWachtwoord123!"
 #>
 param(
-    [string]$AdminEmail = "admin@llaser.test",
-    [string]$AdminPassword,
     [string]$Database = "LlaserCms"
 )
 
@@ -25,9 +22,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $cms = Join-Path $root "src/Llaser.Cms"
 $stub = Join-Path $root "src/Llaser.ContentStub"
 
+# Werkt in Windows PowerShell 5.1 én PowerShell 7
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+function Willekeurige-Bytes([int]$aantal) { $b = New-Object byte[] $aantal; $rng.GetBytes($b); $b }
 function Nieuw-Secret([int]$lengte = 24) {
     $tekens = [char[]]"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
-    -join (1..$lengte | ForEach-Object { $tekens[[System.Security.Cryptography.RandomNumberGenerator]::GetInt32($tekens.Length)] })
+    -join ((Willekeurige-Bytes $lengte) | ForEach-Object { $tekens[$_ % $tekens.Length] })
 }
 # Voldoet aan de regels van SQL Server en Umbraco (lengte, hoofd- en kleine letters, cijfer, symbool)
 function Nieuw-Wachtwoord { (Nieuw-Secret 20) + "Aa1!" }
@@ -41,7 +41,8 @@ function Lees-Secrets([string]$project) {
 }
 function Zet-Secret([string]$project, [hashtable]$bestaand, [string]$sleutel, [string]$waarde, [switch]$Overschrijf) {
     if ($bestaand.ContainsKey($sleutel) -and -not $Overschrijf) { return $bestaand[$sleutel] }
-    dotnet user-secrets set $sleutel $waarde --project $project | Out-Null
+    $uitvoer = dotnet user-secrets set $sleutel $waarde --project $project 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Kon secret '$sleutel' niet instellen voor $project`n$uitvoer" }
     $bestaand[$sleutel] = $waarde
     $waarde
 }
@@ -73,9 +74,7 @@ Write-Host "== user-secrets voor Llaser.Cms"
 $c = Lees-Secrets $cms
 Zet-Secret $cms $c "ConnectionStrings:umbracoDbDSN" "Server=localhost,1433;Database=$Database;User Id=sa;Password=$sa;TrustServerCertificate=True" -Overschrijf | Out-Null
 Zet-Secret $cms $c "ConnectionStrings:umbracoDbDSN_ProviderName" "Microsoft.Data.SqlClient" | Out-Null
-$admin = Zet-Secret $cms $c "Umbraco:CMS:Unattended:UnattendedUserPassword" ($(if ($AdminPassword) { $AdminPassword } else { Nieuw-Wachtwoord })) -Overschrijf:([bool]$AdminPassword)
-Zet-Secret $cms $c "Umbraco:CMS:Unattended:UnattendedUserEmail" $AdminEmail -Overschrijf | Out-Null
-Zet-Secret $cms $c "Umbraco:CMS:Imaging:HMACSecretKey" ([Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(64))) | Out-Null
+Zet-Secret $cms $c "Umbraco:CMS:Imaging:HMACSecretKey" ([Convert]::ToBase64String((Willekeurige-Bytes 64))) | Out-Null
 $apiKey = Zet-Secret $cms $c "Umbraco:CMS:DeliveryApi:ApiKey" (Nieuw-Secret 48)
 $webhook = Zet-Secret $cms $c "Llaser:Webhook:Secret" (Nieuw-Secret 48)
 
@@ -84,6 +83,16 @@ $s = Lees-Secrets $stub
 Zet-Secret $stub $s "Cms:ApiKey" $apiKey -Overschrijf | Out-Null
 Zet-Secret $stub $s "Webhook:Secret" $webhook -Overschrijf | Out-Null
 
+Write-Host "== Controle"
+$nodigCms = "ConnectionStrings:umbracoDbDSN", "ConnectionStrings:umbracoDbDSN_ProviderName",
+    "Umbraco:CMS:Imaging:HMACSecretKey", "Umbraco:CMS:DeliveryApi:ApiKey", "Llaser:Webhook:Secret"
+$nodigStub = "Cms:ApiKey", "Webhook:Secret"
+$c = Lees-Secrets $cms; $s = Lees-Secrets $stub
+$mist = @($nodigCms | Where-Object { -not $c[$_] } | ForEach-Object { "Llaser.Cms: $_" }) + @($nodigStub | Where-Object { -not $s[$_] } | ForEach-Object { "Llaser.ContentStub: $_" })
+if ($mist.Count -gt 0) { throw "Deze secrets ontbreken nog:`n  " + ($mist -join "`n  ") }
+if ($c["Umbraco:CMS:DeliveryApi:ApiKey"] -ne $s["Cms:ApiKey"]) { throw "De API-key van de stub verschilt van die van Umbraco" }
+Write-Host "   alle secrets aanwezig"
+
 Write-Host ""
 Write-Host "Klaar. Volgende stappen (zie README):" -ForegroundColor Green
 Write-Host "  docker compose up -d"
@@ -91,8 +100,8 @@ Write-Host "  dotnet run --project src/Llaser.Cms --launch-profile Umbraco.Web.U
 Write-Host "  dotnet run --project src/Llaser.ContentStub --launch-profile https"
 Write-Host ""
 Write-Host "Backoffice:  https://localhost:44310/umbraco"
-Write-Host "  e-mail:     $AdminEmail"
-Write-Host "  wachtwoord: $admin"
+Write-Host "  e-mail:     admin@llaser.test"
+Write-Host "  wachtwoord: LlaserPoc2026!"
 Write-Host "Demopagina:  https://localhost:5001"
 Write-Host ""
-Write-Host "Let op: het admin-wachtwoord geldt enkel bij de EERSTE start op een lege database." -ForegroundColor Yellow
+Write-Host "Let op: de admin wordt aangemaakt bij de EERSTE start op een lege database." -ForegroundColor Yellow

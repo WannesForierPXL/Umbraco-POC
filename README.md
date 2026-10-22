@@ -19,7 +19,7 @@ Reken op ±15 minuten, waarvan de meeste tijd naar downloads gaat.
 |---|---|---|
 | [.NET SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | 10.0.x | `dotnet --list-sdks` |
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | recent, en **gestart** | `docker version` |
-| PowerShell 7 (`pwsh`) | 7.x | `pwsh --version` (op macOS/Linux: [installeren](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)) |
+| PowerShell | Windows PowerShell 5.1 (standaard op Windows) of PowerShell 7 | op macOS/Linux: [PowerShell 7 installeren](https://learn.microsoft.com/powershell/scripting/install/installing-powershell) |
 | Git | – | `git --version` |
 
 Vertrouw daarna eenmalig het HTTPS-ontwikkelcertificaat van .NET (de backoffice-login werkt enkel via HTTPS):
@@ -37,14 +37,19 @@ cd Umbraco-POC
 
 ### 3. Stel de secrets in
 
+Windows:
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
+```
+
+macOS/Linux (of Windows met PowerShell 7):
+
 ```
 pwsh ./scripts/setup.ps1
 ```
 
-Het script maakt een `.env` aan met een SQL Server-wachtwoord, zet alle sleutels (database, API-key, webhook-secret, …) in `dotnet user-secrets`, en toont op het einde **de e-mail en het wachtwoord van de admin**. Noteer die.
-Zelf een wachtwoord kiezen kan ook: `pwsh ./scripts/setup.ps1 -AdminPassword "JouwWachtwoord123!"` (minstens 10 tekens).
-
-Niets hiervan komt in git.
+Het script maakt een `.env` aan met een SQL Server-wachtwoord en zet de sleutels (database, API-key, webhook-secret) in `dotnet user-secrets`. Het eindigt met **"alle secrets aanwezig"**; zie je een rode fout, los die eerst op. Niets hiervan komt in git.
 
 ### 4. Start de database
 
@@ -80,7 +85,9 @@ Klaar bij `Now listening on: https://localhost:5001`.
 | Wat | URL | Login |
 |---|---|---|
 | **Demopagina** (wat de bezoeker ziet) | https://localhost:5001 | rechtsboven **Sign in** = gemockte login als Lid |
-| **Backoffice** (waar de Editor werkt) | https://localhost:44310/umbraco | de admin-gegevens uit stap 3 (standaard `admin@llaser.test`) |
+| **Backoffice** (waar de Editor werkt) | https://localhost:44310/umbraco | e-mail **`admin@llaser.test`**, wachtwoord **`LlaserPoc2026!`** |
+
+> De admin-login staat bewust vast in `appsettings.Development.json`, zodat testers meteen kunnen inloggen. Dat kan enkel omdat het een **lokale demodatabase** is: gebruik deze gegevens nooit voor een gedeelde of online omgeving.
 
 In de backoffice:
 
@@ -111,11 +118,15 @@ NODE_EXTRA_CA_CERTS=devcert.pem node tests/stub-contract.mjs
 
 | Symptoom | Oorzaak en oplossing |
 |---|---|
-| Installatiewizard in de browser in plaats van de backoffice | De secrets ontbreken. Voer `pwsh ./scripts/setup.ps1` (opnieuw) uit en herstart Umbraco. |
+| Umbraco stopt meteen met "LLASER: de lokale secrets ontbreken" | Stap 3 is niet (volledig) gelukt. Voer het setupscript opnieuw uit en start Umbraco opnieuw. |
+| Oudere versie: crash met `If any of the UnattendedUserName, UnattendedUserEmail, UnattendedUserPassword are set, all of them are required` | Zelfde oorzaak: haal de laatste versie op (`git pull`), voer het setupscript uit en start opnieuw. |
+| Installatiewizard in de browser in plaats van de backoffice | De secrets ontbreken. Voer het setupscript (opnieuw) uit en herstart Umbraco. |
+| Inloggen met `LlaserPoc2026!` lukt niet | De database werd aangemaakt met een ouder wachtwoord. Begin opnieuw met een lege database (zie onderaan). |
 | `Cannot open database` / `Login failed for user 'sa'` | De database draait niet of `.env` hoort bij een ander volume. `docker compose up -d`; na een nieuw wachtwoord: `docker compose down -v` (wist de database) en opnieuw. |
 | Login geeft `This server only accepts HTTPS requests` | Gebruik `https://localhost:44310`, niet `http://…:15019`. |
 | Certificaatwaarschuwing in de browser | `dotnet dev-certs https --trust` en de browser herstarten. |
 | Demopagina toont "Nog geen gepubliceerde Guides" | Umbraco draait niet, of de index van de Delivery API is leeg: backoffice → **Settings → Examine Management → DeliveryApiContentIndex → Rebuild**. |
+| `global.json`: "A compatible .NET SDK was not found" | Installeer een .NET 10 SDK; elke 10.0.x-versie werkt. |
 | Build faalt met "file is locked by Llaser.Cms" | Een vorige `dotnet run` draait nog. Stop die met Ctrl+C. |
 | Poort 1433, 44310 of 5001 is bezet | Een andere SQL Server of app gebruikt die poort; stop die eerst. |
 
