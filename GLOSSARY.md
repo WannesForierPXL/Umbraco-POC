@@ -13,8 +13,16 @@ Een thematische groep Guide-stappen binnen de Guide.
 _Avoid_: sectie, categorie
 
 **Guide-stap**:
-Eén afzonderlijk advies binnen een Hoofdstuk, opgebouwd uit blokken (tekst, afbeelding, callout).
+Eén afzonderlijk advies binnen een Hoofdstuk, opgebouwd uit Blokken.
 _Avoid_: artikel, pagina, item
+
+**Blok**:
+Een bouwsteen van een Guide-stap: Tekst, Afbeelding of Callout.
+_Avoid_: component, element, sectie
+
+**Callout**:
+Een Blok dat een korte boodschap uitlicht als tip, waarschuwing of info.
+_Avoid_: notice, alert, kader
 
 ## Resources
 
@@ -27,6 +35,10 @@ _Avoid_: bron, asset, document
 **Toegangsniveau**:
 Wie gepubliceerde content mag zien: `publiek` (iedereen) of `leden` (enkel ingelogde Leden). Binnen de Guide geldt het strengste niveau van een Guide-stap en zijn Hoofdstuk.
 _Avoid_: rechten, zichtbaarheid, protected
+
+**Teaser**:
+Wat een Bezoeker van afgeschermde content te zien krijgt: titel en samenvatting, zonder inhoud.
+_Avoid_: preview, uittreksel
 
 **Concept**:
 Content die nog niet klaar is en daarom niet gepubliceerd; dit is geen Toegangsniveau.
