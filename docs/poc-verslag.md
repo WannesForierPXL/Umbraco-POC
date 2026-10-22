@@ -80,11 +80,36 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 
 ### Stap 4 – User groups Editor en Admin
 
-- **Criterium:** K2
-- **Tijd:**
+- **Criterium:** K2 (en K5)
+- **Tijd:** ±30 min
 - **Wat gedaan:**
-- **Wat werkte:**
-- **Wat niet:**
+  - De standaardgroepen van Umbraco nagekeken. Ze dekken onze rollen zonder aanpassing:
+
+    | Rol | Umbraco-groep | Sections | Belangrijkste rechten | Start node |
+    |---|---|---|---|---|
+    | Editor | `Editors` (`editor`) | Content, Media (+ Forms) | Create, Update, Delete, Move, Sort, Rollback, **Publish, Unpublish** | geen (hele boom) |
+    | Admin | `Administrators` (`admin`) | alle, incl. **Settings** en **Users** | alles, incl. Permissions, Culture and Hostnames | geen |
+
+    Umbraco heeft ook `Writers` (bewerken maar **niet publiceren**) en `Translators`: een goedkeuringsflow (Writer dient in, Editor publiceert) zit er dus standaard in, al gebruiken we die niet.
+  - Uitnodigingsmail gemockt via SMTP pickup directory (`Umbraco:CMS:Global:Smtp:DeliveryMethod = SpecifiedPickupDirectory`, map `umbraco/Mail`, niet in git). Daarvoor moest ook `Umbraco:CMS:WebRouting:UmbracoApplicationUrl` gezet worden.
+  - `editor@llaser.test` uitgenodigd in `Editors`: de mail landt als `.eml` met een werkende `invite-user`-link.
+  - Rechten automatisch getest met een tijdelijke API-gebruiker in `Editors` (daarna uitgeschakeld):
+
+    | Actie | Resultaat |
+    |---|---|
+    | Document lezen | 200 ✅ |
+    | Document publiceren | 200 ✅ |
+    | Document type lezen | 200 (nodig om te kunnen bewerken) |
+    | Document type aanmaken | 403 ✅ |
+    | Gebruikers oplijsten / uitnodigen | 403 ✅ |
+    | Taal aanmaken | 403 ✅ |
+- **Wat werkte:** de standaardgroepen passen exact; geen configuratie nodig. Het rechtenmodel is fijnmazig (per actie, per taal, per start node).
+- **Wat niet / opvallend:**
+  - **User groups zitten niet in de gratis uSync** (enkel in uSync.Complete). Elke nieuwe omgeving moet de groepen dus handmatig nakijken; hier valt dat mee omdat we de standaardgroepen gebruiken. Minpunt K5.
+  - De eerste uitnodiging faalde (`ApplicationUrlNotConfigured`), maar de gebruiker was **toch al aangemaakt** met status "Invited". Een tweede poging gaf `DuplicateEmail`; enkel "resend invite" werkte. De API-call is dus niet atomair.
+  - Een gebruiker die ooit ingelogd heeft, kan niet verwijderd worden, enkel uitgeschakeld (audit trail). Goed voor productie, verrassend in een sandbox.
+  - In productie vervangt Entra ID (stap 9) de uitnodiging grotendeels: wie in de juiste Entra-groep zit, krijgt automatisch een account met de juiste Umbraco-groep.
+- **Nog handmatig te testen:** inloggen als Editor via de uitnodigingslink in een privévenster en controleren dat Settings en Users niet zichtbaar zijn (zie demoscript).
 
 ### Stap 5 – Delivery API dicht met API-key
 
