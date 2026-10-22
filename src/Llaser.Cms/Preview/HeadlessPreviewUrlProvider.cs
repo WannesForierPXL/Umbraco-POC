@@ -10,10 +10,14 @@ namespace Llaser.Cms.Preview;
 /// in plaats van een Umbraco-template, die we bewust niet hebben. De frontend haalt het concept op via de
 /// Delivery API met de header "Preview: true".
 /// Gewone (gepubliceerde) URL's laat deze provider over aan de standaardproviders.
+///
+/// De hoofdknop "Save and preview" vraagt altijd de provider met alias "umbDocumentUrlProvider".
+/// Deze provider neemt die alias over en staat vooraan in de collectie, zodat de knop zelf de headless
+/// preview opent. Umbraco's eigen template-preview vervalt daarmee; die hebben we headless niet.
 /// </summary>
 public sealed class HeadlessPreviewUrlProvider(IConfiguration configuration) : IUrlProvider
 {
-    public string Alias => "llaserHeadlessPreview";
+    public string Alias => "umbDocumentUrlProvider";
 
     public UrlInfo? GetUrl(IPublishedContent content, UrlMode mode, string? culture, Uri current) => null;
 
