@@ -102,12 +102,12 @@ Stretch: wordt enkel gescoord als stap 9 gehaald is, anders op basis van documen
 
 | # | Gewicht | Umbraco | Payload | Motivering |
 |---|---|---|---|---|
-| K1 | 25 % | | | |
-| K2 | 20 % | | | |
-| K3 | 15 % | | | |
-| K4 | 10 % | | | |
-| K5 | 10 % | | | |
-| K6 | 10 % | | | |
-| K7 | 5 % | | | |
-| K8 | 5 % | | | |
-| **Totaal** | 100 % | | | |
+| K1 | 25 % | 3 (voorlopig) | | zie poc-verslag |
+| K2 | 20 % | 4 | | |
+| K3 | 15 % | 3 | | |
+| K4 | 10 % | 3 | | |
+| K5 | 10 % | 3 | | |
+| K6 | 10 % | 4 | | |
+| K7 | 5 % | 2 | | |
+| K8 | 5 % | 3 (op papier) | | |
+| **Totaal** | 100 % | **65 %** | | |

@@ -4,7 +4,8 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 
 - **Versies:** Umbraco 17.7.1 (LTS, .NET 10), uSync 17.4.3 (gratis), SQL Server 2022
 - **Timebox:** 2 dagen
-- **Totale tijd:** _nog in te vullen_
+- **Totale tijd:** ±7 u binnen de timebox (zie [Totaaltijd](#totaaltijd))
+- **Gewogen score:** 65 % (zie [Scores](#scores); K1 voorlopig, K8 op papier)
 
 ## Stappen
 
@@ -187,15 +188,32 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 ### Stap 8 – Verslag afwerken
 
 - **Criterium:** alle
-- **Tijd:**
+- **Tijd:** ±45 min (incl. demopagina en demoscript ±1 u extra, buiten de timebox)
+- **Wat gedaan:** scores, architectuurvragen en conclusie hieronder; `docs/demoscript.md` en een CMS-onafhankelijke demopagina (`src/Llaser.ContentStub/wwwroot/index.html`, `https://localhost:5001`).
 
 ### Stap 9 – Stretch: Azurite, Entra-login backoffice
 
 - **Criterium:** K6, K8 (telt niet mee in de timebox)
-- **Tijd:**
-- **Wat gedaan:**
-- **Wat werkte:**
-- **Wat niet:**
+- **Status:** **niet gebouwd**, wel uitgezocht.
+- **Entra-login backoffice:** vraagt een app-registratie in een Entra-tenant (client-id, secret, redirect-URI `/umbraco-signin-oidc`) en de package `Microsoft.AspNetCore.Authentication.OpenIdConnect`. Umbraco ondersteunt *external login providers* voor de backoffice, met auto-linking (account aanmaken bij eerste login) en, met wat eigen code, het omzetten van Entra-groepen naar Umbraco-groepen. Schatting: 2–3 u. Wacht op een tenant waarin we een app-registratie mogen maken.
+- **Azurite / Blob Storage:** vraagt de package `Umbraco.StorageProviders.AzureBlob` (eerst te vragen). Dit lost het media-lek niet vanzelf op: Umbraco serveert de blobs nog steeds via `/media/...` (zie architectuurvragen).
+
+## Totaaltijd
+
+| Stap | Tijd |
+|---|---|
+| 0 Repo en docs | 0,25 u |
+| 1 Umbraco + SQL Server | 0,5 u |
+| 2 uSync | 0,3 u |
+| 3 Contentmodel + voorbeeldpad + round-trip | ±2 u (modelleren door een Umbraco-beginner, tijd geschat) |
+| 4 Rollen | 0,5 u |
+| 5 Delivery API | 0,5 u |
+| 6 Stub | 1,5 u |
+| 7 Webhook | 0,75 u |
+| 8 Verslag | 0,75 u |
+| **Totaal** | **±7 u**, ruim binnen de timebox van 2 dagen |
+
+Buiten de timebox: vooronderzoek (3 research-tickets), demopagina en demoscript (±1 u).
 
 ## Bevindingen uit het vooronderzoek
 
@@ -210,24 +228,84 @@ Bronnen: de research-branches gelinkt vanuit de [Wayfinder-map](https://github.c
 
 ### Hoe blijft de Delivery API "enkel intern" als de backoffice publiek is?
 
-_In te vullen. Opties: enkel API-key / pad blokkeren aan de ingress / aparte instanties._
+Umbraco serveert backoffice, Management API, Delivery API en `/media` uit één app. Drie opties:
+
+| Optie | Wat | Oordeel |
+|---|---|---|
+| Enkel API-key | Delivery API publiek bereikbaar, maar 401 zonder key | Eén statische key, die ook drafts opent, zonder scopes. Lekt de key, dan is alles open. **Enkel als extra laag.** |
+| Pad blokkeren aan de ingress | `/umbraco/delivery/*` en `/media/*` weigeren van buiten | Azure Container Apps-ingress heeft geen padregels; daarvoor is Front Door of Application Gateway (WAF-regel) nodig. Werkt, maar extra component en kosten. |
+| **Twee instanties** van dezelfde image | Een **publieke** backoffice-instantie (rol *SchedulingPublisher*) en een **interne** delivery-instantie (rol *Subscriber*, interne ingress), op dezelfde database | Umbraco ondersteunt dit officieel (load balancing). De Delivery API is dan echt niet van buiten bereikbaar. Let op: webhooks en geplande publicaties draaien enkel op de SchedulingPublisher. |
+
+**Advies:** twee instanties + API-key als tweede laag. Op de publieke instantie de Delivery API uitzetten en `/media` enkel voor aangemelde backoffice-gebruikers serveren.
 
 ### Wat betekent het databasetype voor kosten en beheer?
 
-_In te vullen._
+- Umbraco ondersteunt officieel **SQL Server / Azure SQL** (en SQLite voor ontwikkeling), geen PostgreSQL. Payload werkt met PostgreSQL of MongoDB.
+- Gebruiken de eigen services (bv. de outbox van de Content Service) PostgreSQL, dan krijgt LLASER met Umbraco **twee database-engines**: twee soorten backups, monitoring, migratietools en kennis in het team. Kosten zijn voor dit volume klein (Azure SQL serverless of Basic ligt rond een paar tientallen euro per maand), het beheer weegt zwaarder dan de factuur.
+- **Advies:** kies Umbraco, dan ook de eigen services op Azure SQL zetten (één engine). Kies Payload, dan PostgreSQL voor alles. Het databasetype volgt dus uit de CMS-keuze, niet omgekeerd.
 
 ### Hoe wordt de webhook in productie een event op Service Bus?
 
-_In te vullen. Vertrekpunt: eigen notification handler die naar een outbox schrijft._
+De POC toont dat de ingebouwde webhook **niet betrouwbaar genoeg** is als bron: geen event-id, geen volgorde, verlies na ±1 minuut retries, "taal offline" komt binnen als Publish, en depubliceren stuurt een extra Publish mee.
+
+**Advies:**
+
+1. Een eigen **notification handler in Umbraco** (`ContentPublishedNotification`, `ContentUnpublishedNotification`). Die heeft per document de gepubliceerde én gedepubliceerde talen (`PublishedCultures` / `UnpublishedCultures`), dus geen gissen naar "taal offline".
+2. De handler schrijft een rij in een **outbox-tabel** (in de Umbraco-database, met eigen migratie), met een eigen event-id en volgnummer.
+3. Een achtergrondproces stuurt de outbox naar **Azure Service Bus** (`ContentPublished` / `ContentUnpublished`, sessions per content-id voor volgorde) en markeert ze als verzonden.
+4. Als vangnet: de Content Service doet periodiek een **reconciliatie** via de Delivery API (items gewijzigd sinds X).
+
+Dit vraagt C#-code in het CMS. Voor een .NET-team is dat een voordeel (zelfde taal als de eigen services); het koppelt wel een stukje logica aan Umbraco. Bij Payload is het equivalent een `afterChange`-hook in TypeScript.
 
 ### Hoe schermen we media van afgeschermde content af?
 
-_In te vullen. Opties: proxy via de Content Service / private Blob Storage met SAS-URL's._
+- De POC bevestigt het lek: `/media/<map>/<bestand>.pdf` van een leden-Resource is zonder key bereikbaar (200). De Delivery API beschermt enkel de JSON.
+- De media-proxy van de stub werkt (403 voor Bezoekers, 200 voor Leden), maar heeft pas zin als Umbraco de bestanden niet meer zelf publiek serveert.
+- **Advies:**
+  - Media in een **private Blob Storage-container** (via `Umbraco.StorageProviders.AzureBlob`).
+  - `/media` op de Umbraco-instanties enkel voor aangemelde backoffice-gebruikers (middleware), of van buiten blokkeren.
+  - De Content Service geeft bestanden vrij via een proxy (zoals de stub) of via een kortlevende **SAS-URL**, na de toegangscontrole.
+  - De Content Service houdt bij welk media-item bij welke content hoort (index, bijgewerkt via de events); Umbraco biedt in de Delivery API geen "waar wordt dit gebruikt".
+
+### Bijkomend: HTTPS achter de ingress
+
+De backoffice-login werkt enkel via HTTPS (OpenIddict weigert HTTP). In Container Apps eindigt TLS aan de ingress; Umbraco moet dan de forwarded headers vertrouwen (`ForwardedHeaders` middleware) en `UmbracoApplicationUrl` kennen, anders faalt de login.
 
 ## Scores
 
-Zie de scoretabel in [criteria.md](criteria.md).
+Score 1–5 volgens [criteria.md](criteria.md). K1 is **voorlopig**: de meting met een teamlid dat de POC niet bouwde, moet nog gebeuren (zie demoscript). K8 is **op papier** (stap 9 niet gebouwd).
+
+| # | Criterium | Gewicht | Umbraco | Motivering |
+|---|---|---|---|---|
+| K1 | Redactie-ervaring (visueel) | 25 % | **3** (voorlopig) | Block List met variatie per blok werkt zoals een Editor het verwacht (zelfde blokken, vertaalde tekst). Modelleren als Admin was verwarrend: de variatieschakelaar werd consequent omgekeerd gezet, een ontbrekende alias geeft een JSON-fout. Redactie door een Editor nog te meten. |
+| K2 | Redactieflow en rollen | 20 % | **4** | Standaardgroepen passen exact (Editor publiceert, geen Settings/Users), rechten per actie/taal/start node, Writers-groep voor een goedkeuringsflow staat klaar. Min: uitnodiging-API niet atomair. |
+| K3 | API en integratie | 15 % | **3** | API-key werkt, blokken komen volledig uitgeklapt, rich text als HTML: mapping is eenvoudig. Min: geen taalterugval, geen parent-id (3 requests per stap), lege index na aanzetten, media-API apart aan te zetten, één statische key. |
+| K4 | Contentmodel en afscherming | 10 % | **3** | Boom, blokken, Resource en variatie per blok passen zonder omwegen. Min: geen standaardwaarde voor `toegangsniveau`, en media lekt via `/media`. |
+| K5 | Model als code | 10 % | **3** | uSync round-trip werkt volledig, ook content (±11 s import). Min: afhankelijk van een externe package, user groups enkel in betalende uSync.Complete, mediabestanden niet mee, import bij opstart standaard uit, versienummer in de mapnaam. |
+| K6 | Opzet, hosting en beheer | 10 % | **4** | ±30 min tot draaiend CMS met SQL Server in Docker, unattended install, LTS tot nov 2028, gratis (MIT), .NET zoals de eigen services. Min: versie moet gepind worden (template kiest 18 STS), template zet een secret in `appsettings.json`, HTTPS achter ingress vraagt aandacht, tweede databasetype. |
+| K7 | Events en webhooks | 5 % | **2** | Werkt voor een demo (secret-header, Minimal payload). Niet betrouwbaar als bron: geen event-id, geen volgorde, taal-offline = Publish, extra Publish bij depubliceren, verlies na retries, secret in plaintext in logs. Eigen handler + outbox nodig. |
+| K8 | Authenticatie backoffice (Entra) | 5 % | **3** (op papier) | External login providers met auto-linking zijn ingebouwd; groepsmapping vraagt eigen code. Niet gebouwd (geen tenant). |
+| | **Gewogen totaal** | 100 % | **65 %** | (3×25 + 4×20 + 3×15 + 3×10 + 3×10 + 4×10 + 2×5 + 3×5) / 5 |
+
+De Payload-kolom staat in [criteria.md](criteria.md) en wordt door de Payload-POC ingevuld.
 
 ## Conclusie
 
-_In te vullen in stap 8._
+**Umbraco is een haalbare keuze voor LLASER.** Alles wat de POC moest aantonen, werkt: een meertalig contentmodel met blokken, Editor- en Admin-rollen, een afgeschermde Delivery API, een CMS-onafhankelijke Content Service met afscherming op `toegangsniveau`, en een webhook bij publiceren. De stub-contracttest (19 regels) slaagt volledig.
+
+**Sterk:**
+
+- Volwassen redactie-omgeving met een fijnmazig rechtenmodel dat zonder configuratie past.
+- Variatie per blok: precies wat meertalige Guide-stappen nodig hebben.
+- Zelfde stack als de eigen services (.NET 10, C#): eigen logica in het CMS (outbox, Entra-groepen) schrijft het team in de taal die het al kent.
+- Gratis, LTS met 3 jaar ondersteuning.
+
+**Zwak:**
+
+- Model als code is niet native: het steunt op uSync, en user groups zitten enkel in de betalende versie.
+- Webhooks zijn te zwak voor betrouwbare events; een eigen handler + outbox is nodig.
+- Media afschermen is eigen werk (private Blob + proxy/SAS + `/media` dichtzetten).
+- Delivery API en backoffice in één app: "enkel intern" vraagt twee instanties of een WAF.
+- SQL Server als extra databasetype als de rest PostgreSQL wordt.
+
+**Waar de vergelijking met Payload over moet gaan:** de redactie-ervaring voor experts (K1, nog te meten met een testpersoon in beide CMS'en), model als code (native in Payload, uSync in Umbraco), en de betrouwbaarheid van events. Op API-integratie en rollen ontlopen ze elkaar vermoedelijk weinig; de contracttest en de demopagina maken dat zichtbaar, want ze werken ongewijzigd tegen beide stubs.

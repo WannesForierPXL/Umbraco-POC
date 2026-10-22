@@ -7,7 +7,7 @@ LLASER bouwt een nieuwe website: een *single resource base* rond veilige LLM-int
 resource library (deels afgeschermd), nieuws, en een *best-practice guide* die experts zelf
 aanvullen via een CMS.
 
-In sprint 1 maken we **twee POC's** (Umbraco en Payload). Op basis daarvan kiest het team het CMS.
+In sprint 1 maken we **twee POC's** (Umbraco en Payload). Op basis daarvan kiest de **Klant** het CMS, op advies van het team.
 Deze repo is de Umbraco-POC. Het doel is **een onderbouwde keuze**, geen productiecode.
 
 ### Doelarchitectuur (ter info, NIET bouwen in deze POC)
@@ -44,17 +44,60 @@ beredeneer je op papier** (in `docs/poc-verslag.md`).
 ## Structuur
 
 ```
-llaser-cms-poc-umbraco/
+Umbraco-POC/
 ├── CLAUDE.md
-├── docker-compose.yml        ← enkel SQL Server (later evt. Azurite)
+├── GLOSSARY.md               ← domeintaal (Guide, Hoofdstuk, Guide-stap, Toegangsniveau, Teaser, …)
+├── docker-compose.yml        ← enkel SQL Server 2022
 ├── docs/
 │   ├── criteria.md           ← beoordelingscriteria (gedeeld met Payload-POC)
-│   └── poc-verslag.md        ← bevindingen per stap + architectuurvragen
+│   ├── contentmodel.md       ← contentmodel, regels, stub-API en DTO (gedeeld met Payload-POC)
+│   ├── demoscript.md         ← demo voor de Klant (gedeeld met Payload-POC)
+│   └── poc-verslag.md        ← bevindingen per stap, architectuurvragen, scores, conclusie
 ├── http/poc.http             ← requests om de flow te testen
+├── tests/stub-contract.mjs   ← CMS-onafhankelijke contracttest van de stub-API
 └── src/
-    ├── Llaser.Cms/           ← Umbraco-host + uSync-bestanden
-    └── Llaser.ContentStub/   ← minimal API (één Program.cs + ICmsClient)
+    ├── Llaser.Cms/           ← Umbraco 17.7.1 + uSync 17.4.3 (uSync/v17/) + webhookregistratie
+    └── Llaser.ContentStub/   ← minimal API: Program.cs (regels + endpoints), Cms/ICmsClient + UmbracoCmsClient, wwwroot (demopagina)
 ```
+
+## Versies (vastgepind)
+
+- Umbraco **17.7.1** (LTS, .NET 10, EOL nov 2028). Niet `17.*` en niet de standaardtemplate (die kiest 18.x STS).
+- uSync **17.4.3** (gratis). Geen uSync.Complete.
+- SQL Server `mcr.microsoft.com/mssql/server:2022-latest`.
+- .NET SDK 10.0.401 (`global.json`).
+
+## Lokaal draaien
+
+```
+cp .env.example .env            # MSSQL_SA_PASSWORD invullen
+docker compose up -d
+dotnet run --project src/Llaser.Cms --launch-profile Umbraco.Web.UI       # https://localhost:44310/umbraco
+dotnet run --project src/Llaser.ContentStub --launch-profile https       # https://localhost:5001 (demopagina)
+```
+
+Eerste start op een lege database: unattended install + uSync importeert model én voorbeeldcontent.
+Backoffice-login werkt enkel via **HTTPS**.
+
+## Secrets (nooit in git)
+
+| Waar | Sleutel |
+|---|---|
+| `.env` | `MSSQL_SA_PASSWORD` |
+| user-secrets `Llaser.Cms` | `ConnectionStrings:umbracoDbDSN`, `ConnectionStrings:umbracoDbDSN_ProviderName`, `Umbraco:CMS:Unattended:UnattendedUserPassword`, `Umbraco:CMS:Imaging:HMACSecretKey`, `Umbraco:CMS:DeliveryApi:ApiKey`, `Llaser:Webhook:Secret`, `Seed:ClientSecret` |
+| user-secrets `Llaser.ContentStub` | `Cms:ApiKey` (= Delivery API-key), `Webhook:Secret` (= `Llaser:Webhook:Secret`) |
+| `http/http-client.private.env.json` | `apiKey`, `webhookSecret` |
+
+## Beslissingen
+
+Alle beslissingen staan, met hun reden, in de [Wayfinder-map](https://github.com/WannesForierPXL/Umbraco-POC/issues/1). De belangrijkste:
+
+- Contentmodel, regels en DTO: zie `docs/contentmodel.md` (bindend voor beide POC's).
+- Talen `nl-BE` (standaard) en `en-US`; ontbrekende EN valt terug op NL (in de stub).
+- Toegangsniveau `publiek` / `leden`; strengste van stap en Hoofdstuk wint; Bezoekers zien een Teaser. Login gemockt met `X-Mock-Lid: true`.
+- Editor = Umbraco-groep `Editors` (publiceert overal), Admin = `Administrators`. User groups zitten niet in gratis uSync.
+- Webhook in code aangemaakt (niet via uSync), zodat het secret buiten git blijft.
+- `wwwroot/media` staat in git: gratis uSync bewaart geen mediabestanden.
 
 ## Werkregels voor Claude
 
@@ -107,8 +150,10 @@ llaser-cms-poc-umbraco/
 - Wat betekent een tweede databasetype (SQL Server naast PostgreSQL) voor kosten en beheer?
 - Hoe zou de webhook in productie een event op Service Bus worden (outbox in de Content Service)?
 
-## Planning
+De antwoorden staan in `docs/poc-verslag.md` (sectie Architectuurvragen).
 
-Beslissingen en open vragen staan in de [Wayfinder-map](https://github.com/WannesForierPXL/Umbraco-POC/issues/1).
-Deze `CLAUDE.md` wordt herzien in het ticket "Herziene CLAUDE.md voor de bouw"; tot dan gelden de
-beslissingen in de map boven deze tekst.
+## Status
+
+Stap 0–8 gebouwd en gecommit. Stap 9 (Entra, Azurite) niet gebouwd: wacht op een Entra-tenant met
+rechten voor een app-registratie, en op akkoord voor de package `Umbraco.StorageProviders.AzureBlob`.
+Nog te doen door het team: de K1-meting met een teamlid (zie `docs/demoscript.md`).
