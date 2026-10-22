@@ -4,7 +4,8 @@ Gedeeld tussen de Umbraco-POC en de Payload-POC. Beide bouwen **exact dit model*
 
 ## Talen
 
-- `nl` (standaard) en `en`.
+- `nl` is de standaardtaal en **verplicht**: een item kan niet gepubliceerd worden zonder NL-versie.
+- `en` is **optioneel**, een extra vertaling.
 - Ontbreekt een item in de gevraagde taal, dan geeft de stub de `nl`-versie terug (zie [DTO](#dto)).
 - Bestaat een item **enkel** in `en`, dan verschijnt het in de `en`-weergave op zijn plaats in de boom, en in de `nl`-weergave niet (er is niets om op terug te vallen).
 

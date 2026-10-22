@@ -230,6 +230,11 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 - **Bug in Umbraco 17.7.1 (K1):** een *nieuw* item meteen "Publish" geven onder een niet-gepubliceerde ouder faalt, maar Umbraco **slaat het item toch op**. De backoffice weet dat niet en probeert bij elke volgende "Save" het item opnieuw aan te maken → `Cannot insert duplicate key row … IX_umbracoNode_UniqueId`. Uit de lus geraak je enkel door de pagina te herladen en het item uit de boom te openen.
 - De eigen melding bij een niet-gepubliceerde ouder ving dat geval eerst niet op (een nieuw item heeft nog geen pad); nu loopt ze via de ouders omhoog.
 
+### Extra – NL verplicht, EN optioneel
+
+- `nl-BE` staat nu op **Mandatory language** (via de Management API; uSync legt het vast in `Languages/nl-be.config`). `en-US` heeft `nl-BE` als fallback-taal. Een item enkel in EN publiceren kan niet meer.
+- **Welke taal een nieuw item krijgt:** de backoffice opent items in de taal die laatst gekozen werd in de taalkeuze *boven de contentboom*, en onthoudt die per browser (`localStorage`, sleutel `umb:appLanguage`). Pas als daar niets staat, gebruikt hij de standaardtaal. De taalwissel *in* een item verandert die keuze niet. Werkwijze voor Editors: laat de keuze boven de boom op Dutch en vertaal via de taalwissel in het item. (K1: niet zichtbaar voor een Editor waarom items in de "verkeerde" taal openen.)
+
 ## Totaaltijd
 
 | Stap | Tijd |
