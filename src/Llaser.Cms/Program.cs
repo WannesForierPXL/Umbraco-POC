@@ -18,12 +18,9 @@ if (builder.Environment.IsDevelopment())
     {
         Console.Error.WriteLine($"""
 
-            LLASER: de lokale secrets ontbreken ({string.Join(", ", ontbrekend)}).
-            Voer eerst uit vanuit de map van de repo:
-
-                pwsh ./scripts/setup.ps1        (of: powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1)
-
-            en start Umbraco daarna opnieuw. Zie README, stap 3.
+            LLASER: lokale instellingen ontbreken ({string.Join(", ", ontbrekend)}).
+            Ze horen in src/Llaser.Cms/appsettings.Development.json te staan. Haal de laatste versie op (git pull)
+            of herstel dat bestand (git checkout src/Llaser.Cms/appsettings.Development.json). Zie README.
 
             """);
         return 1;

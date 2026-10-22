@@ -4,7 +4,7 @@ services:
     container_name: llaser-sql
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?zet MSSQL_SA_PASSWORD in .env}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-LlaserPoc2026!}   # lokaal demowachtwoord; .env mag het overschrijven
       MSSQL_PID: Developer
     ports:
       - "1433:1433"

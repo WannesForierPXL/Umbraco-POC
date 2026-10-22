@@ -69,24 +69,24 @@ Umbraco-POC/
 
 ## Lokaal draaien
 
-```
-cp .env.example .env            # MSSQL_SA_PASSWORD invullen
-docker compose up -d
-dotnet run --project src/Llaser.Cms --launch-profile Umbraco.Web.UI       # https://localhost:44310/umbraco
-dotnet run --project src/Llaser.ContentStub --launch-profile https       # https://localhost:5001 (demopagina)
-```
+Zie README. Kort: `docker compose up -d`, dan `dotnet run` voor `src/Llaser.Cms` (profiel `Umbraco.Web.UI`) en
+`src/Llaser.ContentStub` (profiel `https`). Eerste start op een lege database: unattended install + uSync importeert
+model én voorbeeldcontent. Backoffice-login enkel via **HTTPS**: `admin@llaser.test` / `LlaserPoc2026!`.
 
-Eerste start op een lege database: unattended install + uSync importeert model én voorbeeldcontent.
-Backoffice-login werkt enkel via **HTTPS**.
+## Secrets: bewuste uitzondering op werkregel 5
 
-## Secrets (nooit in git)
+Op vraag van het team staan de **lokale demowaarden** in git, zodat testers zonder setup kunnen starten
+(eerder faalde een setupscript met user-secrets bij testers):
 
-| Waar | Sleutel |
+| Waar | Wat |
 |---|---|
-| `.env` | `MSSQL_SA_PASSWORD` |
-| user-secrets `Llaser.Cms` | `ConnectionStrings:umbracoDbDSN`, `ConnectionStrings:umbracoDbDSN_ProviderName`, `Umbraco:CMS:Imaging:HMACSecretKey`, `Umbraco:CMS:DeliveryApi:ApiKey`, `Llaser:Webhook:Secret`, `Seed:ClientSecret` |
-| user-secrets `Llaser.ContentStub` | `Cms:ApiKey` (= Delivery API-key), `Webhook:Secret` (= `Llaser:Webhook:Secret`) |
-| `http/http-client.private.env.json` | `apiKey`, `webhookSecret` |
+| `docker-compose.yml` | SQL Server-wachtwoord (standaard, `.env` mag overschrijven) |
+| `src/Llaser.Cms/appsettings.Development.json` | connection string, admin-login, imaging-HMAC, Delivery API-key, webhook-secret |
+| `src/Llaser.ContentStub/appsettings.Development.json` | dezelfde API-key en webhook-secret |
+| `http/http-client.env.json` | API-key en webhook-secret voor `poc.http` |
+
+Deze waarden gelden **enkel lokaal** (Development). Echte secrets voor een gedeelde of online omgeving horen nooit in git
+(user-secrets, omgevingsvariabelen of Key Vault). User-secrets op een machine gaan vóór deze waarden.
 
 ## Beslissingen
 

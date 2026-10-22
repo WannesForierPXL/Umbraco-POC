@@ -11,15 +11,14 @@ Umbraco 17 (LTS) als headless CMS, met een kleine Content Service (`Llaser.Conte
 
 ## Lokaal opzetten
 
-Reken op ±15 minuten, waarvan de meeste tijd naar downloads gaat.
+Geen setup of secrets nodig: alle lokale instellingen staan in de repo. Reken op ±10 minuten, vooral downloads.
 
 ### 1. Installeer de vereisten
 
 | Wat | Versie | Controle |
 |---|---|---|
-| [.NET SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | 10.0.x | `dotnet --list-sdks` |
+| [.NET SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | elke 10.0.x | `dotnet --list-sdks` |
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | recent, en **gestart** | `docker version` |
-| PowerShell | Windows PowerShell 5.1 (standaard op Windows) of PowerShell 7 | op macOS/Linux: [PowerShell 7 installeren](https://learn.microsoft.com/powershell/scripting/install/installing-powershell) |
 | Git | – | `git --version` |
 
 Vertrouw daarna eenmalig het HTTPS-ontwikkelcertificaat van .NET (de backoffice-login werkt enkel via HTTPS):
@@ -28,51 +27,25 @@ Vertrouw daarna eenmalig het HTTPS-ontwikkelcertificaat van .NET (de backoffice-
 dotnet dev-certs https --trust
 ```
 
-### 2. Haal de repo op
+### 2. Haal de repo op en start de database
 
 ```
 git clone https://github.com/WannesForierPXL/Umbraco-POC.git
 cd Umbraco-POC
-```
-
-### 3. Stel de secrets in
-
-Windows:
-
-```
-powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
-```
-
-macOS/Linux (of Windows met PowerShell 7):
-
-```
-pwsh ./scripts/setup.ps1
-```
-
-Het script maakt een `.env` aan met een SQL Server-wachtwoord en zet de sleutels (database, API-key, webhook-secret) in `dotnet user-secrets`. Het eindigt met **"alle secrets aanwezig"**; zie je een rode fout, los die eerst op. Niets hiervan komt in git.
-
-### 4. Start de database
-
-```
 docker compose up -d
 ```
 
 Wacht tot `docker ps` voor `llaser-sql` **(healthy)** toont (±30 s).
 
-### 5. Start Umbraco
+### 3. Start Umbraco (terminal 1)
 
 ```
 dotnet run --project src/Llaser.Cms --launch-profile Umbraco.Web.UI
 ```
 
-Bij de **eerste** start gebeurt automatisch:
+De **eerste** start maakt de database aan, installeert Umbraco en importeert het contentmodel en de voorbeeldcontent (±30 s). Klaar bij `Now listening on: https://localhost:44310`. Laat dit venster open.
 
-1. Umbraco maakt de database `LlaserCms` aan en installeert zichzelf (geen wizard).
-2. uSync importeert het contentmodel én de voorbeeldcontent uit `src/Llaser.Cms/uSync/v17/` (±15 s).
-
-Klaar zodra je `Now listening on: https://localhost:44310` ziet. Laat dit venster open.
-
-### 6. Start de Content Stub (tweede terminal)
+### 4. Start de Content Stub (terminal 2)
 
 ```
 dotnet run --project src/Llaser.ContentStub --launch-profile https
@@ -80,14 +53,12 @@ dotnet run --project src/Llaser.ContentStub --launch-profile https
 
 Klaar bij `Now listening on: https://localhost:5001`.
 
-### 7. Openen en inloggen
+### 5. Openen en inloggen
 
 | Wat | URL | Login |
 |---|---|---|
 | **Demopagina** (wat de bezoeker ziet) | https://localhost:5001 | rechtsboven **Sign in** = gemockte login als Lid |
 | **Backoffice** (waar de Editor werkt) | https://localhost:44310/umbraco | e-mail **`admin@llaser.test`**, wachtwoord **`LlaserPoc2026!`** |
-
-> De admin-login staat bewust vast in `appsettings.Development.json`, zodat testers meteen kunnen inloggen. Dat kan enkel omdat het een **lokale demodatabase** is: gebruik deze gegevens nooit voor een gedeelde of online omgeving.
 
 In de backoffice:
 
@@ -96,6 +67,8 @@ In de backoffice:
 3. **Save and preview** opent de demopagina met je niet-gepubliceerde wijziging; **Publish** zet ze online (herlaad de demopagina).
 
 De flow voor de Klant staat in [docs/demoscript.md](docs/demoscript.md).
+
+> **Lokale demowaarden.** Wachtwoorden en sleutels (admin-login, SQL Server, API-key, webhook-secret) staan bewust vast in `appsettings.Development.json` en `docker-compose.yml`, zodat de POC zonder setup start. Dat kan enkel omdat alles lokaal draait. Gebruik ze nooit voor een gedeelde of online omgeving.
 
 ## Een Editor-account (optioneel)
 
@@ -118,11 +91,11 @@ NODE_EXTRA_CA_CERTS=devcert.pem node tests/stub-contract.mjs
 
 | Symptoom | Oorzaak en oplossing |
 |---|---|
-| Umbraco stopt meteen met "LLASER: de lokale secrets ontbreken" | Stap 3 is niet (volledig) gelukt. Voer het setupscript opnieuw uit en start Umbraco opnieuw. |
-| Oudere versie: crash met `If any of the UnattendedUserName, UnattendedUserEmail, UnattendedUserPassword are set, all of them are required` | Zelfde oorzaak: haal de laatste versie op (`git pull`), voer het setupscript uit en start opnieuw. |
-| Installatiewizard in de browser in plaats van de backoffice | De secrets ontbreken. Voer het setupscript (opnieuw) uit en herstart Umbraco. |
+| Umbraco stopt meteen met "LLASER: lokale instellingen ontbreken" | `appsettings.Development.json` is gewijzigd of oud: `git pull`, of herstel het met `git checkout src/Llaser.Cms/appsettings.Development.json`. |
+| Crash met `If any of the UnattendedUserName, UnattendedUserEmail, UnattendedUserPassword are set, all of them are required` | Overblijfsel van het vroegere setupscript. Wis de oude user-secrets: `dotnet user-secrets clear --project src/Llaser.Cms` en `dotnet user-secrets clear --project src/Llaser.ContentStub`, dan opnieuw starten. |
+| Installatiewizard in de browser in plaats van de backoffice | Zelfde oorzaak als hierboven: oude user-secrets wissen. |
 | Inloggen met `LlaserPoc2026!` lukt niet | De database werd aangemaakt met een ouder wachtwoord. Begin opnieuw met een lege database (zie onderaan). |
-| `Cannot open database` / `Login failed for user 'sa'` | De database draait niet of `.env` hoort bij een ander volume. `docker compose up -d`; na een nieuw wachtwoord: `docker compose down -v` (wist de database) en opnieuw. |
+| `Cannot open database` / `Login failed for user 'sa'` | De database draait niet (`docker compose up -d`), of het volume werd ooit met een ander wachtwoord aangemaakt: `docker compose down -v` (wist de database) en opnieuw `docker compose up -d`. |
 | Login geeft `This server only accepts HTTPS requests` | Gebruik `https://localhost:44310`, niet `http://…:15019`. |
 | Certificaatwaarschuwing in de browser | `dotnet dev-certs https --trust` en de browser herstarten. |
 | Demopagina toont "Nog geen gepubliceerde Guides" | Umbraco draait niet, of de index van de Delivery API is leeg: backoffice → **Settings → Examine Management → DeliveryApiContentIndex → Rebuild**. |
