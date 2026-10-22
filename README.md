@@ -22,6 +22,20 @@ Vertrouw daarna eenmalig het HTTPS-ontwikkelcertificaat van .NET (de backoffice-
 dotnet dev-certs https --trust
 ```
 
+#### Op Linux
+
+Getest op Ubuntu 24.04 (ook in WSL): alles werkt, met deze verschillen.
+
+- **.NET:** installeer de SDK via je pakketbeheerder of met Microsofts script, zonder sudo in je eigen map:
+  ```
+  curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
+  export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="$HOME/.dotnet"
+  ```
+- **Docker:** Docker Engine met de `docker compose`-plugin volstaat; Docker Desktop is niet nodig.
+- **`dotnet dev-certs https --trust`** vraagt op Linux je **sudo-wachtwoord** (om het certificaat ook aan je browser te geven). Typ het in. Voor Umbraco en de stub is het certificaat al vertrouwd vóór die vraag, dus lukt sudo niet, dan werkt de POC toch; je browser toont dan enkel een certificaatwaarschuwing die je kunt aanvaarden.
+- **WSL:** open je de site in een browser op Windows, dan kent Windows het certificaat van WSL niet: aanvaard de waarschuwing, of draai alles in Windows zelf.
+- **ARM (bv. Raspberry Pi, sommige cloud-VM's):** werkt niet, de SQL Server-image bestaat enkel voor x86_64.
+
 ### 2. Haal de repo op en start de database
 
 ```
