@@ -38,10 +38,19 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 ### Stap 2 – uSync
 
 - **Criterium:** K5
-- **Tijd:**
+- **Tijd:** ±20 min
 - **Wat gedaan:**
-- **Wat werkte:**
-- **Wat niet:**
+  - Package `uSync` 17.4.3 (gratis) toegevoegd.
+  - `ImportOnFirstBoot: true` zodat een verse database het model uit de bestanden haalt; `ExportOnSave: All` (standaard) zodat elke wijziging in de backoffice meteen een bestand wordt.
+  - `WebhookHandler` uitgeschakeld: het webhook-secret mag niet in git (webhook wordt in stap 7 in code aangemaakt).
+  - Eenmalige export bij opstart via omgevingsvariabele `uSync__Settings__ExportAtStartup=All` (niet in de config): 48 bestanden in `src/Llaser.Cms/uSync/v17/` (DataTypes, Languages, MediaTypes, MemberTypes, RelationTypes).
+- **Wat werkte:** installatie en eerste export zonder problemen; 12 handlers actief.
+- **Wat niet / opvallend:**
+  - Standaard importeert uSync niets bij opstart; zonder `ImportOnFirstBoot` start een nieuwe omgeving met een leeg model.
+  - Het JSON-schema van uSync 17.4.3 noemt nog `uSync/v14/` als standaardmap, terwijl de map in de praktijk `uSync/v17/` is. De map heeft een versienummer in de naam: bij een upgrade naar een volgende major moet je hierop letten.
+  - De standaardtaal na installatie is `en-US`. Voor LLASER moet dat `nl` worden (stap 3).
+  - Bijvangst: de template zette `Imaging:HMACSecretKey` (ondertekent beeld-URL's) in `appsettings.json`, en die zat zo in de commit van stap 1. Verplaatst naar user-secrets met een nieuwe sleutel, zodat de oude waardeloos is.
+  - Nog niet getest: een volledige round-trip (lege database → import). Dat is pas zinvol met een echt model en gebeurt in stap 3.
 
 ### Stap 3 – Contentmodel (Guide-boom, bloktypes, Resource, NL/EN, toegangsniveau)
 

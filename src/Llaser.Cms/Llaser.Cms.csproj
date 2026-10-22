@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Umbraco.Cms" Version="17.7.1" />
     <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="17.7.1" />
+    <PackageReference Include="uSync" Version="17.4.3" />
   </ItemGroup>
 
   <PropertyGroup>
