@@ -68,6 +68,13 @@ app.MapGet("/media/{id}", async (string id, HttpContext ctx, ContentService cont
         _ => Results.NotFound(),
     });
 
+// Media uit opgemaakte tekst. Geen toegangscontrole mogelijk: de Delivery API geeft bij beelden in rich text
+// geen media-id mee, dus de stub weet niet bij welke content het bestand hoort (zie verslag, K4).
+app.MapGet("/cms-media/{**pad}", async (string pad, HttpRequest request, ContentService content, CancellationToken ct) =>
+    await content.GetTekstMediaAsync(pad, request.QueryString.Value ?? "", ct) is { } b
+        ? Results.Stream(b.Inhoud, b.ContentType, enableRangeProcessing: false)
+        : Results.NotFound());
+
 // Preview voor "Save and preview" in de backoffice. Toont concepten, dus ENKEL in Development:
 // in productie moet de BFF eerst nagaan dat de gebruiker een Editor is (Entra).
 if (app.Environment.IsDevelopment())
@@ -191,6 +198,8 @@ sealed class ContentService(ICmsClient cms)
         if (!lezer.MagZien(niveau.Value)) return new MediaResultaat.Afgeschermd();
         return await cms.GetMediaAsync(mediaId, ct) is { } bestand ? new MediaResultaat.Bestand(bestand) : new MediaResultaat.NietGevonden();
     }
+
+    public Task<CmsBestand?> GetTekstMediaAsync(string pad, string query, CancellationToken ct) => cms.GetTekstMediaAsync(pad, query, ct);
 
     /// <summary>Enkel voor preview: een Editor ziet alle media, zonder toegangscontrole.</summary>
     public Task<CmsBestand?> GetMediaVoorEditorAsync(string mediaId, CancellationToken ct) => cms.GetMediaAsync(mediaId, ct);

@@ -224,6 +224,12 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 - **Tijd:** ±45 min. Contracttest uitgebreid: 20 controles, alle geslaagd.
 - **Opvallend:** in Umbraco kan een Editor een item enkel in EN publiceren, ook al is NL de standaardtaal, tenzij NL als *mandatory* staat ingesteld. Bewust zo gelaten.
 
+### Extra – Bevindingen bij zelf testen in de backoffice
+
+- **Afbeelding in de teksteditor (K3, K4):** de Delivery API levert een beeld in rich text als `<img src="/media/<map>/<bestand>.png?rmode=max&width=500&hmac=…">`: een pad op de Umbraco-host, **zonder media-id**. Op de frontend wees dat naar een niet-bestaand pad. De adapter herschrijft zulke paden nu naar `/cms-media/…` op de stub, die het bestand doorgeeft (incl. Umbraco's resize-parameters en hmac). **Een toegangscontrole is daar niet mogelijk**, want zonder media-id weet de stub niet bij welke content het beeld hoort. Advies: afgeschermde beelden enkel via een Afbeelding-blok, of rich text als JSON (`RichTextOutputAsJson`) laten leveren en de media-referenties daaruit halen.
+- **Bug in Umbraco 17.7.1 (K1):** een *nieuw* item meteen "Publish" geven onder een niet-gepubliceerde ouder faalt, maar Umbraco **slaat het item toch op**. De backoffice weet dat niet en probeert bij elke volgende "Save" het item opnieuw aan te maken → `Cannot insert duplicate key row … IX_umbracoNode_UniqueId`. Uit de lus geraak je enkel door de pagina te herladen en het item uit de boom te openen.
+- De eigen melding bij een niet-gepubliceerde ouder ving dat geval eerst niet op (een nieuw item heeft nog geen pad); nu loopt ze via de ouders omhoog.
+
 ## Totaaltijd
 
 | Stap | Tijd |

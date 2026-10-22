@@ -23,6 +23,12 @@ public interface ICmsClient
     Task<CmsResource?> GetResourceAsync(string id, Taal taal, CancellationToken ct);
 
     Task<CmsBestand?> GetMediaAsync(string mediaId, CancellationToken ct);
+
+    /// <summary>
+    /// Een mediabestand waarnaar opgemaakte tekst verwijst. De adapter herschrijft zulke verwijzingen in de HTML
+    /// naar /cms-media/{pad}; het pad is ondoorzichtig voor de stub en betekent enkel iets voor de adapter.
+    /// </summary>
+    Task<CmsBestand?> GetTekstMediaAsync(string pad, string query, CancellationToken ct);
 }
 
 public enum Taal { Nl, En }

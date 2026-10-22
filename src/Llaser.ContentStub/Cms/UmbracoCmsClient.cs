@@ -80,6 +80,23 @@ public sealed class UmbracoCmsClient(HttpClient http) : ICmsClient
         return new CmsBestand(await bestand.Content.ReadAsStreamAsync(ct), contentType, naam);
     }
 
+    public async Task<CmsBestand?> GetTekstMediaAsync(string pad, string query, CancellationToken ct)
+    {
+        // Enkel bestanden onder Umbraco's /media; geen andere paden op de CMS-host doorgeven.
+        if (pad.Contains("..") || pad.StartsWith('/')) return null;
+        var bestand = await http.GetAsync(new Uri(http.BaseAddress!, $"/media/{pad}{query}"), HttpCompletionOption.ResponseHeadersRead, ct);
+        if (!bestand.IsSuccessStatusCode) return null;
+        var contentType = bestand.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        return new CmsBestand(await bestand.Content.ReadAsStreamAsync(ct), contentType, Path.GetFileName(pad));
+    }
+
+    // Afbeeldingen en links in rich text verwijzen naar /media/... op de Umbraco-host (zonder media-id).
+    // Herschrijven naar de stub, zodat de frontend het CMS nooit rechtstreeks aanspreekt.
+    private static readonly System.Text.RegularExpressions.Regex TekstMedia =
+        new("""(src|href)="/media/""", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static string HerschrijfMedia(string html) => TekstMedia.Replace(html, """$1="/cms-media/""");
+
     // ---------- Delivery API ----------
 
     private async Task<JsonElement?> ItemAsync(string id, Taal taal, CancellationToken ct)
@@ -132,7 +149,7 @@ public sealed class UmbracoCmsClient(HttpClient http) : ICmsClient
             CmsBlok? blok = Type(content) switch
             {
                 "blokTekst" => new CmsTekstBlok(p.TryGetProperty("tekst", out var t) && t.ValueKind == JsonValueKind.Object
-                    ? t.GetProperty("markup").GetString() ?? "" : ""),
+                    ? HerschrijfMedia(t.GetProperty("markup").GetString() ?? "") : ""),
                 "blokAfbeelding" when EersteMediaId(p.TryGetProperty("afbeelding", out var a) ? a : null) is { } mediaId =>
                     new CmsAfbeeldingBlok(mediaId, Str(p, "alt") ?? "", Str(p, "bijschrift")),
                 "blokCallout" => new CmsCalloutBlok(Str(p, "soort") ?? "info", Str(p, "tekst") ?? ""),

@@ -20,7 +20,7 @@ public sealed class OuderNietGepubliceerdMelding(IContentService contentService)
 
         foreach (var content in notification.PublishedEntities)
         {
-            var nietGepubliceerd = contentService.GetAncestors(content)
+            var nietGepubliceerd = Voorouders(content)
                 .Where(a => !a.Published && !inDezelfdeActie.Contains(a.Id))
                 .OrderBy(a => a.Level)
                 .ToList();
@@ -34,6 +34,18 @@ public sealed class OuderNietGepubliceerdMelding(IContentService contentService)
                 $"Tip: kies op '{hoogste.Name}' Publish → 'Publish with descendants' en vink 'Include unpublished content items' aan.",
                 EventMessageType.Error));
             return;
+        }
+    }
+
+    // Via ParentId omhoog, niet via GetAncestors: een nieuw (nog niet opgeslagen) item heeft nog geen pad,
+    // waardoor GetAncestors niets teruggeeft en "Publish" op een nieuw item anders niet opgevangen wordt.
+    private IEnumerable<IContent> Voorouders(IContent content)
+    {
+        var parentId = content.ParentId;
+        while (parentId > 0 && contentService.GetById(parentId) is { } ouder)
+        {
+            yield return ouder;
+            parentId = ouder.ParentId;
         }
     }
 }
