@@ -21,6 +21,10 @@ builder.Services.AddSingleton<WebhookOntvanger>();
 
 var app = builder.Build();
 
+// Demopagina (wwwroot/index.html): praat enkel met de endpoints hieronder, dus werkt ook voor de Payload-stub.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // ---------- endpoints ----------
 
 app.MapGet("/guide", async (HttpContext ctx, string? taal, ContentService content, CancellationToken ct) =>

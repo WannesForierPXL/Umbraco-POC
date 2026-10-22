@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LLASER Guide-demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap">
+<style>
+/* Layout: werkbalk bovenaan (taal + lezer), daaronder inhoudstafel | leesvenster, onderaan Resources en webhook-log.
+   CMS-onafhankelijk: deze pagina praat enkel met de stub-API (docs/contentmodel.md). */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --fg: #1b2230;
+  --muted: #5d6676;
+  --line: #dde1e8;
+  --accent: #2346b8;
+  --accent-soft: #e6ebfa;
+  --lock: #8a5a00;
+  --lock-soft: #fbf1dc;
+  --tip: #1f7a4d;   --tip-soft: #e3f4ea;
+  --warn: #a8322a;  --warn-soft: #fbe7e5;
+  --info: #2346b8;  --info-soft: #e6ebfa;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151c; --surface: #181d26; --fg: #e6e9ef; --muted: #9aa3b2; --line: #2a313d;
+    --accent: #8ea6ff; --accent-soft: #1f2a4a; --lock: #f0c070; --lock-soft: #3a2e14;
+    --tip: #6fd3a0; --tip-soft: #15362a; --warn: #ff8f86; --warn-soft: #3d1c1a; --info: #8ea6ff; --info-soft: #1f2a4a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151c; --surface: #181d26; --fg: #e6e9ef; --muted: #9aa3b2; --line: #2a313d;
+  --accent: #8ea6ff; --accent-soft: #1f2a4a; --lock: #f0c070; --lock-soft: #3a2e14;
+  --tip: #6fd3a0; --tip-soft: #15362a; --warn: #ff8f86; --warn-soft: #3d1c1a; --info: #8ea6ff; --info-soft: #1f2a4a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font-body); }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.bar { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding-block: 12px; }
+.brand { font: 600 18px/1.2 var(--font-display); margin-right: auto; }
+.brand small { display: block; font: 500 11px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.control { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 13px var(--font-body); border: 0; background: transparent; color: var(--fg); padding: 6px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+
+main.wrap { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 24px; padding-block: 24px; }
+@media (max-width: 760px) { main.wrap { grid-template-columns: minmax(0, 1fr); } }
+
+.toc h1 { font: 600 22px/1.25 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
+.toc .intro { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+.chapter { margin-bottom: 18px; }
+.chapter h2 { font: 600 12px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; display: flex; gap: 8px; align-items: center; }
+.chapter ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.step { width: 100%; text-align: left; border: 0; background: transparent; color: var(--fg); font: 15px/1.4 var(--font-body); padding: 8px 10px; border-radius: 6px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.step:hover { background: var(--accent-soft); }
+.step[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.step .n { font: 12px var(--font-mono); color: var(--muted); min-width: 2.2em; font-variant-numeric: tabular-nums; }
+
+.tag { font: 500 11px/1 var(--font-mono); letter-spacing: .04em; padding: 4px 6px; border-radius: 4px; white-space: nowrap; }
+.tag.lock { background: var(--lock-soft); color: var(--lock); }
+.tag.lang { background: var(--accent-soft); color: var(--accent); }
+
+article.reader { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 28px clamp(18px, 4vw, 40px); min-width: 0; }
+.crumb { font: 12px var(--font-mono); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+article h1 { font: 600 clamp(24px, 3.4vw, 32px)/1.2 var(--font-display); margin: 8px 0 8px; text-wrap: balance; }
+.lede { font-size: 17px; color: var(--muted); margin: 0 0 24px; max-width: 65ch; }
+.body { max-width: 65ch; display: grid; gap: 20px; }
+.body h2 { font: 600 19px/1.3 var(--font-display); margin: 0 0 4px; }
+.body p, .body ul { margin: 0 0 8px; }
+figure { margin: 0; }
+figure img { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--line); display: block; background: var(--bg); }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.callout { border-radius: 6px; padding: 12px 14px; display: grid; gap: 2px; }
+.callout b { font: 600 11px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+.callout.tip { background: var(--tip-soft); color: var(--tip); }
+.callout.waarschuwing { background: var(--warn-soft); color: var(--warn); }
+.callout.info { background: var(--info-soft); color: var(--info); }
+.callout span { color: var(--fg); }
+
+.teaser { border: 1px dashed var(--lock); background: var(--lock-soft); border-radius: 8px; padding: 18px; max-width: 65ch; }
+.teaser strong { color: var(--lock); }
+.teaser button { margin-top: 10px; }
+.btn { font: 500 13px var(--font-body); border: 1px solid var(--accent); background: var(--accent); color: var(--surface); padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); }
+
+section.lower { padding-block: 0 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 760px) { section.lower { grid-template-columns: minmax(0, 1fr); } }
+.panel h2 { font: 600 18px/1.3 var(--font-display); margin: 0 0 10px; }
+.resources { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.resource { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 6px; }
+.resource .top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.resource h3 { margin: 0; font: 600 15px/1.35 var(--font-body); }
+.resource p { margin: 0; color: var(--muted); font-size: 14px; }
+.resource .kind { font: 12px var(--font-mono); color: var(--muted); }
+.resource a, .resource button.link { color: var(--accent); font: 500 14px var(--font-body); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; justify-self: start; }
+
+.log { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+.log table { width: 100%; border-collapse: collapse; font: 12.5px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
+.log th, .log td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.log th { color: var(--muted); font-weight: 500; }
+.log .empty { padding: 14px; color: var(--muted); font: 13px var(--font-body); }
+.ev-pub { color: var(--tip); } .ev-unpub { color: var(--warn); } .dup { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.error { color: var(--warn); }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">LLASER<small>Guide-demo · via de Content Stub</small></div>
+    <div class="control" id="taal-control">Taal
+      <span class="seg" role="group" aria-label="Taal">
+        <button type="button" id="taal-nl" data-taal="nl" aria-pressed="true">NL</button>
+        <button type="button" id="taal-en" data-taal="en" aria-pressed="false">EN</button>
+      </span>
+    </div>
+    <div class="control" id="lezer-control">Bekijken als
+      <span class="seg" role="group" aria-label="Lezer">
+        <button type="button" id="lezer-bezoeker" data-lid="false" aria-pressed="true">Bezoeker</button>
+        <button type="button" id="lezer-lid" data-lid="true" aria-pressed="false">Lid</button>
+      </span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="toc" aria-label="Inhoud van de Guide">
+    <h1 id="guide-titel">Guide laden…</h1>
+    <p class="intro" id="guide-intro"></p>
+    <div id="hoofdstukken"></div>
+  </nav>
+  <article class="reader" id="reader" aria-live="polite">
+    <p class="crumb">Kies een stap in de inhoudstafel.</p>
+  </article>
+</main>
+
+<section class="wrap lower">
+  <div class="panel">
+    <h2>Resource library</h2>
+    <ul class="resources" id="resources"></ul>
+  </div>
+  <div class="panel">
+    <h2>Webhook-events</h2>
+    <div class="log" id="log"><p class="empty">Nog geen events. Publiceer iets in de backoffice.</p></div>
+    <p class="note">Wat het CMS bij publiceren meldt, vertaald naar ContentPublished / ContentUnpublished. Ververst elke 5 s.</p>
+  </div>
+</section>
+
+<script>
+const state = { taal: "nl", lid: false, stapId: null };
+const objectUrls = [];
+
+function headers() { return state.lid ? { "X-Mock-Lid": "true" } : {}; }
+async function api(path) {
+  const r = await fetch(path + (path.includes("?") ? "&" : "?") + "taal=" + state.taal, { headers: headers() });
+  return { status: r.status, body: r.headers.get("content-type")?.includes("json") ? await r.json() : null };
+}
+// Media gaat via de stub en vraagt dezelfde lezer-header, dus als blob ophalen in plaats van een gewone <img src>.
+async function mediaUrl(path) {
+  const r = await fetch(path, { headers: headers() });
+  if (!r.ok) return null;
+  const url = URL.createObjectURL(await r.blob());
+  objectUrls.push(url);
+  return url;
+}
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) e.append(kid);
+  return e;
+}
+const t = (nl, en) => state.taal === "en" ? en : nl;
+const lock = () => el("span", { class: "tag lock" }, t("leden", "members"));
+const vertaling = (item) => item.taal !== state.taal ? el("span", { class: "tag lang", title: t("Nog niet vertaald", "Not translated yet") }, item.taal.toUpperCase()) : null;
+
+async function laadGuide() {
+  const { status, body: g } = await api("/guide");
+  if (status !== 200) { document.getElementById("guide-titel").textContent = "Guide niet gevonden"; return; }
+  document.getElementById("guide-titel").textContent = g.titel;
+  document.getElementById("guide-intro").textContent = g.intro ?? "";
+  const wrap = document.getElementById("hoofdstukken");
+  wrap.replaceChildren(...g.hoofdstukken.map((h, hi) =>
+    el("section", { class: "chapter" },
+      el("h2", {}, `${hi + 1}. ${h.titel}`, h.afgeschermd ? lock() : null, vertaling(h)),
+      el("ol", {}, h.stappen.map((s, si) =>
+        el("li", {}, el("button", {
+          type: "button", class: "step", id: "stap-" + s.id, "aria-current": String(s.id === state.stapId),
+          onclick: () => toonStap(s.id),
+        }, el("span", { class: "n" }, `${hi + 1}.${si + 1}`), el("span", {}, s.titel), s.afgeschermd ? lock() : null, vertaling(s))))))));
+  if (!state.stapId && g.hoofdstukken[0]?.stappen[0]) state.stapId = g.hoofdstukken[0].stappen[0].id;
+}
+
+async function toonStap(id) {
+  state.stapId = id;
+  document.querySelectorAll(".step").forEach(b => b.setAttribute("aria-current", String(b.id === "stap-" + id)));
+  const reader = document.getElementById("reader");
+  const { status, body: s } = await api("/guide/stappen/" + id);
+  if (!s) { reader.replaceChildren(el("p", { class: "error" }, `Kon de stap niet laden (HTTP ${status}).`)); return; }
+
+  const kop = [
+    el("p", { class: "crumb" }, s.hoofdstuk.titel, s.toegangsniveau === "leden" ? lock() : null,
+      s.taal !== s.gevraagdeTaal ? el("span", { class: "tag lang" }, t("Nog niet vertaald, NL-versie", "Not translated yet, showing Dutch")) : null,
+      el("span", {}, `HTTP ${status}`)),
+    el("h1", {}, s.titel),
+    el("p", { class: "lede" }, s.samenvatting),
+  ];
+
+  if (s.afgeschermd) {
+    reader.replaceChildren(...kop, el("div", { class: "teaser" },
+      el("strong", {}, t("Enkel voor leden. ", "Members only. ")),
+      t("Een Bezoeker ziet enkel de titel en samenvatting; de blokken komen niet mee uit de stub.",
+        "A visitor only sees the title and summary; the blocks are not sent by the stub."),
+      el("div", {}, el("button", { type: "button", class: "btn", onclick: () => zetLezer(true) }, t("Bekijk als lid", "View as member")))));
+    return;
+  }
+
+  const blokken = await Promise.all(s.blokken.map(async b => {
+    if (b.type === "tekst") { const d = el("div"); d.innerHTML = b.html; return d; } // HTML komt van het CMS (vertrouwde editors)
+    if (b.type === "afbeelding") {
+      const src = await mediaUrl(b.url);
+      return el("figure", {}, src ? el("img", { src, alt: b.alt }) : el("p", { class: "error" }, "Afbeelding niet beschikbaar"),
+        b.bijschrift ? el("figcaption", {}, b.bijschrift) : null);
+    }
+    if (b.type === "callout") {
+      const label = { tip: t("Tip", "Tip"), waarschuwing: t("Waarschuwing", "Warning"), info: "Info" }[b.soort] ?? b.soort;
+      return el("div", { class: "callout " + b.soort, role: "note" }, el("b", {}, label), el("span", {}, b.tekst));
+    }
+    return null;
+  }));
+  reader.replaceChildren(...kop, el("div", { class: "body" }, blokken));
+}
+
+async function laadResources() {
+  const { body: lijst } = await api("/resources");
+  document.getElementById("resources").replaceChildren(...(lijst ?? []).map(r =>
+    el("li", { class: "resource" },
+      el("div", { class: "top" }, el("h3", {}, r.titel), el("span", { class: "kind" }, r.soort === "document" ? "PDF" : "link")),
+      r.beschrijving ? el("p", {}, r.beschrijving) : null,
+      el("div", { class: "top" },
+        r.afgeschermd ? lock()
+          : r.url ? el("a", { href: r.url, target: "_blank", rel: "noopener" }, t("Openen", "Open"))
+          : r.bestandUrl ? el("button", { type: "button", class: "link", onclick: async () => { const u = await mediaUrl(r.bestandUrl); if (u) window.open(u, "_blank"); } }, t("Download PDF", "Download PDF"))
+          : null,
+        vertaling(r)))));
+}
+
+async function laadLog() {
+  try {
+    const r = await fetch("/webhooks/cms/events");
+    const events = await r.json();
+    const log = document.getElementById("log");
+    if (!events.length) return;
+    log.replaceChildren(el("table", {},
+      el("thead", {}, el("tr", {}, el("th", {}, "Tijd"), el("th", {}, "Event"), el("th", {}, "Content"), el("th", {}, "Talen"))),
+      el("tbody", {}, events.slice(0, 8).map(e => el("tr", { class: e.duplicaat ? "dup" : "" },
+        el("td", {}, new Date(e.ontvangen).toLocaleTimeString("nl-BE")),
+        el("td", { class: e.soort === "ContentPublished" ? "ev-pub" : "ev-unpub" }, e.soort + (e.duplicaat ? " (duplicaat)" : "")),
+        el("td", {}, e.contentId.slice(0, 8)),
+        el("td", {}, e.talen.join(", ") || "–"))))));
+  } catch { /* stub even weg: volgende poging */ }
+}
+
+function zetPressed(groep, waarde) {
+  document.querySelectorAll(`#${groep} button`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.taal === waarde || b.dataset.lid === waarde)));
+}
+async function herlaad() {
+  objectUrls.splice(0).forEach(URL.revokeObjectURL);
+  await laadGuide();
+  await Promise.all([state.stapId ? toonStap(state.stapId) : null, laadResources()]);
+}
+function zetLezer(lid) { state.lid = lid; zetPressed("lezer-control", String(lid)); herlaad(); }
+
+document.querySelectorAll("#taal-control button").forEach(b => b.addEventListener("click", () => { state.taal = b.dataset.taal; zetPressed("taal-control", state.taal); herlaad(); }));
+document.querySelectorAll("#lezer-control button").forEach(b => b.addEventListener("click", () => zetLezer(b.dataset.lid === "true")));
+
+herlaad();
+laadLog();
+setInterval(laadLog, 5000);
+</script>
+</body>
+</html>
