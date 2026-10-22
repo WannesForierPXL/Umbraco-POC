@@ -17,6 +17,7 @@ builder.Services.AddHttpClient<ICmsClient, UmbracoCmsClient>(http =>
     http.DefaultRequestHeaders.Add("Api-Key", cms["ApiKey"] ?? throw new InvalidOperationException("Cms:ApiKey ontbreekt (user-secrets)"));
 });
 builder.Services.AddScoped<ContentService>();
+builder.Services.AddSingleton<WebhookOntvanger>();
 
 var app = builder.Build();
 
@@ -52,6 +53,18 @@ app.MapGet("/media/{id}", async (string id, HttpContext ctx, ContentService cont
         MediaResultaat.Bestand { Inhoud: var b } => Results.Stream(b.Inhoud, b.ContentType, b.Bestandsnaam),
         _ => Results.NotFound(),
     });
+
+// Webhook van het CMS bij publiceren/depubliceren. In productie: event op de outbox → Azure Service Bus.
+app.MapPost("/webhooks/cms", async (HttpRequest request, WebhookOntvanger ontvanger) =>
+{
+    if (!ontvanger.SecretKlopt(request.Headers["X-Webhook-Secret"])) return Results.Unauthorized();
+    using var reader = new StreamReader(request.Body);
+    var resultaat = ontvanger.Ontvang(request.Headers["Umb-Webhook-Event"].ToString(), await reader.ReadToEndAsync());
+    return resultaat is null ? Results.BadRequest() : Results.Accepted(value: resultaat);
+});
+
+// Enkel voor de demo: de laatst ontvangen events
+app.MapGet("/webhooks/cms/events", (WebhookOntvanger ontvanger) => ontvanger.Laatste());
 
 app.Run();
 
@@ -186,6 +199,63 @@ sealed class ContentService(ICmsClient cms)
         return standaard.Select(item => vertaald.GetValueOrDefault(id(item)) ?? item).ToList();
     }
 }
+
+// ---------- webhook ----------
+
+/// <summary>
+/// Ontvangt CMS-webhooks en vertaalt ze naar CMS-onafhankelijke domeinevents (ContentPublished / ContentUnpublished).
+/// Idempotent: het CMS kan dezelfde webhook opnieuw sturen (retry), een duplicaat wordt herkend en niet opnieuw verwerkt.
+/// </summary>
+sealed class WebhookOntvanger(IConfiguration configuration, ILogger<WebhookOntvanger> logger)
+{
+    private readonly byte[] _secret = System.Text.Encoding.UTF8.GetBytes(
+        configuration["Webhook:Secret"] ?? throw new InvalidOperationException("Webhook:Secret ontbreekt (user-secrets)"));
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _gezien = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<ContentEvent> _laatste = new();
+
+    public bool SecretKlopt(string? waarde) =>
+        waarde is not null && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(waarde), _secret);
+
+    public ContentEvent? Ontvang(string cmsEvent, string body)
+    {
+        var soort = cmsEvent switch
+        {
+            "Umbraco.ContentPublish" => "ContentPublished",
+            "Umbraco.ContentUnpublish" => "ContentUnpublished",
+            _ => null,
+        };
+        if (soort is null) return null;
+
+        using var json = System.Text.Json.JsonDocument.Parse(body);
+        var id = json.RootElement.GetProperty("id").GetString()!;
+        // Publish (Minimal payload) bevat de gepubliceerde cultures; Unpublish enkel het id.
+        var talen = json.RootElement.TryGetProperty("cultures", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? c.EnumerateArray().Select(x => x.GetProperty("culture").GetString()!).Order().ToArray()
+            : [];
+
+        // Umbraco stuurt geen event-id mee; de payload zelf (incl. publicatiedatums) dient als idempotentiesleutel.
+        var sleutel = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(cmsEvent + body)));
+        var duplicaat = !_gezien.TryAdd(sleutel, 0);
+
+        var e = new ContentEvent(soort, id, talen, DateTimeOffset.UtcNow, duplicaat);
+        if (duplicaat)
+        {
+            logger.LogInformation("Duplicaat genegeerd: {Soort} {Id}", soort, id);
+        }
+        else
+        {
+            logger.LogInformation("Event {Soort} voor {Id} [{Talen}] — in productie naar de outbox", soort, id, string.Join(", ", talen));
+        }
+
+        _laatste.Enqueue(e);
+        while (_laatste.Count > 50) _laatste.TryDequeue(out _);
+        return e;
+    }
+
+    public IReadOnlyList<ContentEvent> Laatste() => _laatste.Reverse().ToList();
+}
+
+sealed record ContentEvent(string Soort, string ContentId, string[] Talen, DateTimeOffset Ontvangen, bool Duplicaat);
 
 abstract record MediaResultaat
 {

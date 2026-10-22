@@ -157,10 +157,32 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 ### Stap 7 – Webhook bij publiceren/depubliceren
 
 - **Criterium:** K7
-- **Tijd:**
+- **Tijd:** ±45 min
 - **Wat gedaan:**
+  - `src/Llaser.Cms/Webhooks/WebhookRegistratie.cs`: maakt bij opstart de webhook naar de stub aan (of werkt het secret bij) via `IWebhookService`. **In code, niet via uSync**, zodat het secret niet in git komt (uSync-`WebhookHandler` staat uit). ±70 regels.
+  - Events `Umbraco.ContentPublish` en `Umbraco.ContentUnpublish`; `Umbraco:CMS:Webhook:PayloadType = Minimal` (expliciet, de v17-default is nog `Legacy`).
+  - Stub: `POST /webhooks/cms` controleert `X-Webhook-Secret` (constant-time), vertaalt naar domeinevents `ContentPublished` / `ContentUnpublished`, logt, en is **idempotent** (hash van event + payload). `GET /webhooks/cms/events` toont de laatste events voor de demo.
+  - Eind-tot-eind getest door via de Management API te publiceren en depubliceren.
 - **Wat werkte:**
-- **Wat niet:**
+  - Webhook in code aanmaken: eenvoudige, goed gedocumenteerde service; werkte meteen.
+  - Secret in een eigen header; zonder of met fout secret → 401. Een herhaalde webhook wordt als duplicaat herkend.
+  - Publish-payload (Minimal) bevat het id en de gepubliceerde talen: genoeg voor een `ContentPublished`-event.
+- **Wat niet / opvallend:** (eind-tot-eindtest)
+
+  | Actie in Umbraco | Wat de stub ontving |
+  |---|---|
+  | Publiceren NL + EN | `ContentPublished [en-US, nl-BE]` |
+  | **Enkel EN offline** | `ContentPublished [nl-BE]` (géén Unpublished) |
+  | Alles depubliceren | `ContentUnpublished []` **én** een extra `ContentPublished []` (lege taallijst) |
+  | Opnieuw publiceren | `ContentPublished [en-US, nl-BE]` |
+
+  - **Volgorde niet gegarandeerd:** drie acties met telkens 15 s ertussen kwamen tegelijk binnen, en de "EN offline"-webhook kwam vóór de eerste publicatie aan. Umbraco verwerkt de wachtrij in batches en verstuurt die parallel.
+  - **Vertraging:** tot ±30 s tussen de actie en de webhook.
+  - **Geen event-id:** idempotentie moet op basis van de payload; twee echte publicaties met dezelfde datum zijn niet te onderscheiden van een retry.
+  - Een "taal offline" moet de consument zelf afleiden door de taallijst te vergelijken met de vorige toestand.
+  - Het secret staat in plaintext in de database en in de webhook-logs van Umbraco (alle request headers worden gelogd).
+  - Na ±1 minuut retries gaat een webhook stil verloren (vooronderzoek); niet apart getest.
+  - **Gevolg voor productie:** de ingebouwde webhook is goed genoeg voor een demo, maar niet als betrouwbare bron voor Service Bus-events. Zie de architectuurvraag over de outbox.
 
 ### Stap 8 – Verslag afwerken
 
