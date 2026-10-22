@@ -26,12 +26,12 @@ Elke stap noemt wat je toont en welk criterium het raakt.
 
 ### 1. Wat de website ziet (1 min) · K4
 
-Op de demopagina, als **Bezoeker**, in **NL**:
+Op de demopagina (opent met het Guide-overzicht; klik "Veilig LLM's integreren"), als **Bezoeker**, in **NL**:
 
 - De Guide met twee Hoofdstukken. "Red-teamresultaten" en het hele Hoofdstuk "Gevoelige data" tonen een slotje.
 - Klik "Red-teamresultaten": enkel titel en samenvatting (Teaser). De inhoud komt niet eens mee uit de stub.
 - Klik "Geen klantdata in prompts": staat zelf op *publiek*, maar het Hoofdstuk is *leden* → toch afgeschermd (strengste wint).
-- Zet **Bekijken als → Lid**: alles opent, ook de PDF in de Resource library.
+- Klik **Sign in** (gemockte login: je bent dan Lid): alles opent, ook de PDF onder **Resources**.
 
 ### 2. Taal (1 min) · K1, K4
 

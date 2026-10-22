@@ -3,203 +3,271 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LLASER Guide-demo</title>
+<title>LLASER Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: werkbalk bovenaan (taal + lezer), daaronder inhoudstafel | leesvenster, onderaan Resources en webhook-log.
+/* Look volgens de LLASER-mockup "11 Guide step": lichtgrijze pagina, witte bovenbalk, donker teal als actiekleur.
+   Layout van een stap: zijbalk (hoofdstukken) | leesvenster | "op deze pagina" + voortgang.
    CMS-onafhankelijk: deze pagina praat enkel met de stub-API (docs/contentmodel.md). */
 :root {
-  --bg: #f6f7f9;
+  --page: #eeeeec;
   --surface: #ffffff;
-  --fg: #1b2230;
-  --muted: #5d6676;
-  --line: #dde1e8;
-  --accent: #2346b8;
-  --accent-soft: #e6ebfa;
-  --lock: #8a5a00;
-  --lock-soft: #fbf1dc;
-  --tip: #1f7a4d;   --tip-soft: #e3f4ea;
-  --warn: #a8322a;  --warn-soft: #fbe7e5;
-  --info: #2346b8;  --info-soft: #e6ebfa;
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --ink: #1d2422;
+  --muted: #6b7370;
+  --line: #d9dbd8;
+  --teal: #0d4a45;        /* knoppen, actieve stap, badges */
+  --teal-ink: #ffffff;
+  --teal-soft: #e3eeec;
+  --aqua: #3fa59a;        /* accenten, logo */
+  --aqua-light: #9ee3dc;
+  --code-bg: #2f3331;
+  --code-ink: #e9ecea;
+  --code-comment: #7fd3c8;
+  --warn: #9a3a2c;
+  --font-body: "Hanken Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #11151c; --surface: #181d26; --fg: #e6e9ef; --muted: #9aa3b2; --line: #2a313d;
-    --accent: #8ea6ff; --accent-soft: #1f2a4a; --lock: #f0c070; --lock-soft: #3a2e14;
-    --tip: #6fd3a0; --tip-soft: #15362a; --warn: #ff8f86; --warn-soft: #3d1c1a; --info: #8ea6ff; --info-soft: #1f2a4a;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #11151c; --surface: #181d26; --fg: #e6e9ef; --muted: #9aa3b2; --line: #2a313d;
-  --accent: #8ea6ff; --accent-soft: #1f2a4a; --lock: #f0c070; --lock-soft: #3a2e14;
-  --tip: #6fd3a0; --tip-soft: #15362a; --warn: #ff8f86; --warn-soft: #3d1c1a; --info: #8ea6ff; --info-soft: #1f2a4a;
-  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font-body); }
+body { background: var(--page); color: var(--ink); font: 16px/1.6 var(--font-body); }
 [hidden] { display: none !important; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+a { color: var(--teal); }
+button { font: inherit; color: inherit; }
 
-.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 500 12px/1.4 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
-header.bar { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
-header.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding-block: 12px; }
-.brand { font: 600 18px/1.2 var(--font-display); margin-right: auto; }
-.brand small { display: block; font: 500 11px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.control { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg button { font: 500 13px var(--font-body); border: 0; background: transparent; color: var(--fg); padding: 6px 12px; cursor: pointer; }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
-
-main.wrap { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 24px; padding-block: 24px; }
-@media (max-width: 760px) { main.wrap { grid-template-columns: minmax(0, 1fr); } }
-
-.toc h1 { font: 600 22px/1.25 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
-.toc .intro { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
-.chapter { margin-bottom: 18px; }
-.chapter h2 { font: 600 12px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; display: flex; gap: 8px; align-items: center; }
-.chapter ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.step { width: 100%; text-align: left; border: 0; background: transparent; color: var(--fg); font: 15px/1.4 var(--font-body); padding: 8px 10px; border-radius: 6px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
-.step:hover { background: var(--accent-soft); }
-.step[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
-.step .n { font: 12px var(--font-mono); color: var(--muted); min-width: 2.2em; font-variant-numeric: tabular-nums; }
-
-.tag { font: 500 11px/1 var(--font-mono); letter-spacing: .04em; padding: 4px 6px; border-radius: 4px; white-space: nowrap; }
-.tag.lock { background: var(--lock-soft); color: var(--lock); }
-.tag.lang { background: var(--accent-soft); color: var(--accent); }
-
-article.reader { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 28px clamp(18px, 4vw, 40px); min-width: 0; }
-.crumb { font: 12px var(--font-mono); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-article h1 { font: 600 clamp(24px, 3.4vw, 32px)/1.2 var(--font-display); margin: 8px 0 8px; text-wrap: balance; }
-.lede { font-size: 17px; color: var(--muted); margin: 0 0 24px; max-width: 65ch; }
-.body { max-width: 65ch; display: grid; gap: 20px; }
-.body h2 { font: 600 19px/1.3 var(--font-display); margin: 0 0 4px; }
-.body p, .body ul { margin: 0 0 8px; }
-figure { margin: 0; }
-figure img { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--line); display: block; background: var(--bg); }
-figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
-.callout { border-radius: 6px; padding: 12px 14px; display: grid; gap: 2px; }
-.callout b { font: 600 11px/1.4 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
-.callout.tip { background: var(--tip-soft); color: var(--tip); }
-.callout.waarschuwing { background: var(--warn-soft); color: var(--warn); }
-.callout.info { background: var(--info-soft); color: var(--info); }
-.callout span { color: var(--fg); }
-
-.teaser { border: 1px dashed var(--lock); background: var(--lock-soft); border-radius: 8px; padding: 18px; max-width: 65ch; }
-.teaser strong { color: var(--lock); }
-.teaser button { margin-top: 10px; }
-.btn { font: 500 13px var(--font-body); border: 1px solid var(--accent); background: var(--accent); color: var(--surface); padding: 7px 12px; border-radius: 6px; cursor: pointer; }
-.btn.ghost { background: transparent; color: var(--accent); }
-
-section.lower { padding-block: 0 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
-@media (max-width: 760px) { section.lower { grid-template-columns: minmax(0, 1fr); } }
-.panel h2 { font: 600 18px/1.3 var(--font-display); margin: 0 0 10px; }
-.resources { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.resource { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 6px; }
-.resource .top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
-.resource h3 { margin: 0; font: 600 15px/1.35 var(--font-body); }
-.resource p { margin: 0; color: var(--muted); font-size: 14px; }
-.resource .kind { font: 12px var(--font-mono); color: var(--muted); }
-.resource a, .resource button.link { color: var(--accent); font: 500 14px var(--font-body); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; justify-self: start; }
-
-.log { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
-.log table { width: 100%; border-collapse: collapse; font: 12.5px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
-.log th, .log td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.log th { color: var(--muted); font-weight: 500; }
-.log .empty { padding: 14px; color: var(--muted); font: 13px var(--font-body); }
-.ev-pub { color: var(--tip); } .ev-unpub { color: var(--warn); } .dup { color: var(--muted); }
-.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
-.preview-banner { background: var(--lock-soft); color: var(--fg); border-bottom: 1px solid var(--lock); font-size: 14px; }
+/* ---------- bovenbalk ---------- */
+.preview-banner { background: #fff4d6; border-bottom: 1px solid #e6c46a; font-size: 14px; }
 .preview-banner .wrap { padding-block: 8px; }
-.preview-banner a { color: var(--accent); margin-left: 8px; }
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+header.top .wrap { display: flex; align-items: stretch; gap: 32px; min-height: 64px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 2px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink); }
+.logo span { font: 300 22px/1 var(--font-body); letter-spacing: .04em; }
+.logo svg { width: 46px; height: 32px; }
+nav.main { display: flex; gap: 22px; }
+nav.main button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 2px; cursor: pointer; font-weight: 500; font-size: 15px; }
+nav.main button[aria-current="page"] { color: var(--teal); border-bottom-color: var(--teal); }
+nav.main button[disabled] { color: var(--ink); opacity: .85; cursor: default; }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 7px 10px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--teal); color: var(--teal-ink); }
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--teal); background: var(--teal); color: var(--teal-ink); padding: 9px 18px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 15px; text-decoration: none; }
+.btn.outline { background: var(--surface); color: var(--teal); }
+.btn svg { width: 16px; height: 16px; }
+
+/* ---------- guide-overzicht ---------- */
+.hero { padding-block: 48px 24px; }
+.hero h1 { font: 300 clamp(34px, 5vw, 48px)/1.1 var(--font-body); letter-spacing: -.02em; margin: 8px 0 12px; text-wrap: balance; }
+.hero p { margin: 0; color: var(--muted); max-width: 62ch; font-size: 17px; }
+.cards { list-style: none; margin: 0; padding: 0 0 48px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 22px; display: grid; gap: 10px; align-content: start; height: 100%; text-align: left; width: 100%; cursor: pointer; }
+.card:hover { border-color: var(--teal); }
+.card h2, .card h3 { margin: 0; font: 500 20px/1.3 var(--font-body); text-wrap: balance; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.card .foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; margin-top: 6px; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font: 500 11px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--ink); border-radius: 3px; padding: 4px 6px; }
+.tag.lock { background: var(--teal); border-color: var(--teal); color: var(--teal-ink); display: inline-flex; gap: 5px; align-items: center; }
+.tag.lock svg { width: 11px; height: 11px; }
+.tag.lang { border-style: dashed; color: var(--muted); border-color: var(--muted); }
+
+/* ---------- stap: drie kolommen ---------- */
+.step-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr) 180px; gap: 40px; padding-block: 40px 56px; }
+@media (max-width: 1000px) { .step-layout { grid-template-columns: 220px minmax(0, 1fr); } .rail { display: none; } }
+@media (max-width: 720px) { .step-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.back { background: none; border: 0; padding: 0; cursor: pointer; color: var(--teal); font-weight: 500; font-size: 14px; text-decoration: underline; display: inline-flex; gap: 6px; align-items: center; }
+.side .guide-name { font-weight: 500; margin: 18px 0 4px; }
+.chapters { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.chapter { border-bottom: 1px solid var(--line); }
+.chapter > button { width: 100%; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 12px 0; cursor: pointer; font-weight: 500; font-size: 16px; text-align: left; }
+.num { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--ink); display: grid; place-items: center; font-size: 12px; font-weight: 500; }
+.chapter.open .num { background: var(--teal); border-color: var(--teal); color: var(--teal-ink); }
+.chev { margin-left: auto; width: 14px; height: 14px; transition: transform .15s; }
+.chapter.open .chev { transform: rotate(180deg); }
+.chapter .steps { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 2px; }
+.stepbtn { width: 100%; display: flex; align-items: center; gap: 10px; background: none; border: 0; border-radius: 3px; padding: 6px 8px; cursor: pointer; font-size: 14px; text-align: left; }
+.stepbtn:hover { background: var(--teal-soft); }
+.stepbtn .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--muted); }
+.stepbtn .nr { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 1.8em; }
+.stepbtn .lock-i { margin-left: auto; width: 12px; height: 12px; color: var(--muted); }
+.stepbtn[aria-current="true"] { background: var(--teal); color: var(--teal-ink); font-weight: 500; }
+.stepbtn[aria-current="true"] .nr, .stepbtn[aria-current="true"] .lock-i { color: var(--teal-ink); }
+.stepbtn[aria-current="true"] .dot { border-color: var(--teal-ink); }
+
+.crumbs { font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
+.crumbs button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); font-size: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 18px; }
+.meta .tag { border-style: dashed; }
+article h1 { font: 300 clamp(32px, 4.4vw, 44px)/1.12 var(--font-body); letter-spacing: -.02em; margin: 10px 0 14px; text-wrap: balance; }
+.lede { font-size: 18px; color: var(--muted); margin: 0 0 28px; max-width: 62ch; }
+.body { max-width: 66ch; display: grid; gap: 22px; }
+.body h2 { font: 500 22px/1.3 var(--font-body); margin: 18px 0 6px; scroll-margin-top: 90px; }
+.body h3 { font: 500 18px/1.3 var(--font-body); margin: 12px 0 4px; }
+.body p, .body ul, .body ol { margin: 0 0 10px; }
+.body img { max-width: 100%; height: auto; }
+.body pre { background: var(--code-bg); color: var(--code-ink); padding: 20px; overflow-x: auto; font: 13.5px/1.7 var(--font-mono); margin: 0; }
+.body code { font-family: var(--font-mono); font-size: .92em; }
+figure { margin: 0; }
+figure img { width: 100%; height: auto; display: block; background: var(--surface); }
+figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.callout { background: #f6f6f4; border: 1px solid var(--line); border-radius: 4px; padding: 20px 22px; display: grid; gap: 6px; }
+.callout .eyebrow { color: var(--teal); }
+.callout.waarschuwing .eyebrow { color: var(--warn); }
+.callout p { margin: 0; font-size: 17px; font-weight: 500; }
+
+.teaser { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 26px; max-width: 66ch; display: grid; gap: 12px; justify-items: start; }
+.teaser .eyebrow { display: inline-flex; gap: 6px; align-items: center; color: var(--teal); }
+.teaser p { margin: 0; }
+
+.pager { display: flex; flex-wrap: wrap; gap: 16px; border-top: 1px solid var(--line); margin-top: 40px; padding-top: 28px; max-width: 66ch; }
+.pager .next { margin-left: auto; }
+
+.rail { display: grid; gap: 28px; align-content: start; position: sticky; top: 100px; }
+.rail ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.rail a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.rail a.active { color: var(--ink); font-weight: 500; }
+.progress { font-size: 14px; margin-top: 8px; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--teal); }
+
+/* ---------- resources ---------- */
+.res-foot svg { width: 16px; height: 16px; }
+
+/* ---------- demo-paneel en footer ---------- */
+details.demo { margin-block: 0 40px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+details.demo summary { cursor: pointer; padding: 14px 18px; font-weight: 500; }
+details.demo .inner { padding: 0 18px 18px; overflow-x: auto; }
+details.demo table { width: 100%; border-collapse: collapse; font: 13px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
+details.demo th, details.demo td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+details.demo th { color: var(--muted); font-weight: 500; }
+.ev-pub { color: var(--teal); } .ev-unpub { color: var(--warn); } .dup { color: var(--muted); }
+
+footer.site { background: #f6f6f4; border-top: 1px solid var(--line); }
+footer.site .wrap { padding-block: 44px 28px; display: grid; gap: 28px; }
+.foot-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 24px; }
+@media (max-width: 720px) { .foot-grid { grid-template-columns: 1fr 1fr; } }
+.foot-grid ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.foot-grid p { color: var(--muted); font-size: 14px; margin: 10px 0 0; max-width: 34ch; }
+.foot-bottom { border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--muted); }
 .error { color: var(--warn); }
-.guides { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
-.guide-card { width: 100%; height: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; cursor: pointer; color: var(--fg); font: inherit; display: grid; gap: 6px; align-content: start; }
-.guide-card:hover { border-color: var(--accent); }
-.guide-card h2 { margin: 0; font: 600 20px/1.25 var(--font-display); text-wrap: balance; }
-.guide-card p { margin: 0; color: var(--muted); font-size: 14px; }
-.guide-card .meta { display: flex; gap: 8px; align-items: center; font: 12px var(--font-mono); color: var(--muted); }
-.home-intro { padding-block: 28px 8px; }
-.home-intro h1 { font: 600 clamp(26px, 4vw, 34px)/1.15 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
-.home-intro p { margin: 0; color: var(--muted); max-width: 65ch; }
-.home-guides { padding-block: 16px 24px; }
-.back { background: none; border: 0; padding: 0; color: var(--accent); font: 500 14px var(--font-body); cursor: pointer; margin-bottom: 12px; }
+.note { color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
+<!-- iconen -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-arrow-l" viewBox="0 0 16 16"><path d="M13 8H3M7 4 3 8l4 4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 14c.6-2.8 2.6-4 5-4s4.4 1.2 5 4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+</svg>
+
 <div class="preview-banner" id="preview-banner" hidden>
   <div class="wrap">Voorvertoning: je ziet de laatst <strong>opgeslagen</strong> versie, ook als die nog niet gepubliceerd is. <a href="/">Naar de gepubliceerde site</a></div>
 </div>
-<header class="bar">
+
+<header class="top">
   <div class="wrap">
-    <div class="brand">LLASER<small>Guide-demo · via de Content Stub</small></div>
-    <div class="control" id="taal-control">Taal
-      <span class="seg" role="group" aria-label="Taal">
-        <button type="button" id="taal-nl" data-taal="nl" aria-pressed="true">NL</button>
-        <button type="button" id="taal-en" data-taal="en" aria-pressed="false">EN</button>
+    <button type="button" class="logo" id="logo" aria-label="LLASER, naar het Guide-overzicht">
+      <span>LLASER</span>
+      <svg viewBox="0 0 46 32" aria-hidden="true"><path d="M8 3 A14 14 0 0 0 8 29" fill="none" stroke="var(--aqua)" stroke-width="1.6"/><path d="M8 16 L24 4 M8 16 L24 28" fill="none" stroke="var(--aqua-light)" stroke-width="1.4"/><path d="M27 4 L24 28" fill="none" stroke="var(--aqua)" stroke-width="1.4"/><path d="M33 4 L44 16 L33 28" fill="none" stroke="var(--aqua)" stroke-width="1.4"/></svg>
+    </button>
+    <nav class="main" aria-label="Hoofdmenu">
+      <button type="button" id="nav-guide" aria-current="page">Guide</button>
+      <button type="button" id="nav-resources">Resources</button>
+      <button type="button" disabled title="Niet in de POC">Academy</button>
+      <button type="button" disabled title="Niet in de POC">News</button>
+      <button type="button" disabled title="Niet in de POC">About</button>
+    </nav>
+    <div class="top-actions">
+      <span class="seg" role="group" aria-label="Taal" id="taal-control">
+        <button type="button" data-taal="nl" aria-pressed="true">NL</button>
+        <button type="button" data-taal="en" aria-pressed="false">EN</button>
       </span>
-    </div>
-    <div class="control" id="lezer-control">Bekijken als
-      <span class="seg" role="group" aria-label="Lezer">
-        <button type="button" id="lezer-bezoeker" data-lid="false" aria-pressed="true">Bezoeker</button>
-        <button type="button" id="lezer-lid" data-lid="true" aria-pressed="false">Lid</button>
-      </span>
+      <button type="button" class="btn outline" id="signin"><svg><use href="#i-user"/></svg><span id="signin-label">Sign in</span></button>
     </div>
   </div>
 </header>
 
-<!-- Overzicht: alle Guides -->
-<section id="view-home">
-  <div class="wrap home-intro">
-    <h1 id="home-titel">Best-practice guides</h1>
-    <p id="home-tekst">Kies een Guide. Nieuwe Guides maak je in de backoffice, in de root van Content.</p>
-  </div>
-  <div class="wrap home-guides">
-    <ul class="guides" id="guides"></ul>
-  </div>
-</section>
-
-<!-- Eén Guide: inhoudstafel en leesvenster -->
-<main class="wrap" id="view-guide" hidden>
-  <nav class="toc" aria-label="Inhoud van de Guide">
-    <button type="button" class="back" id="terug">← Alle Guides</button>
-    <h1 id="guide-titel"></h1>
-    <p class="intro" id="guide-intro"></p>
-    <div id="hoofdstukken"></div>
-  </nav>
-  <article class="reader" id="reader" aria-live="polite">
-    <p class="crumb">Kies een stap in de inhoudstafel.</p>
-  </article>
+<!-- Guide-overzicht -->
+<main id="view-home">
+  <section class="wrap hero">
+    <span class="eyebrow" id="home-eyebrow">Best-practice guide</span>
+    <h1 id="home-titel">Veilig werken met LLM's</h1>
+    <p id="home-tekst"></p>
+  </section>
+  <div class="wrap"><ul class="cards" id="guides"></ul></div>
 </main>
 
-<section class="wrap lower">
-  <div class="panel">
-    <h2>Resource library</h2>
-    <ul class="resources" id="resources"></ul>
+<!-- Eén Guide-stap -->
+<main class="wrap step-layout" id="view-guide" hidden>
+  <aside class="side" aria-label="Inhoud van de Guide">
+    <button type="button" class="back" id="terug"><svg width="14" height="14"><use href="#i-arrow-l"/></svg><span id="terug-label">Guide overview</span></button>
+    <p class="guide-name" id="guide-titel"></p>
+    <ol class="chapters" id="hoofdstukken"></ol>
+  </aside>
+  <article id="reader" aria-live="polite"></article>
+  <aside class="rail" aria-label="Op deze pagina">
+    <div><div class="eyebrow" id="otp-label">Op deze pagina</div><ul id="otp"></ul></div>
+    <div><div class="eyebrow" id="prog-label">Voortgang</div><div class="progress" id="prog-tekst"></div><div class="bar"><span id="prog-bar" style="width:0"></span></div></div>
+  </aside>
+</main>
+
+<!-- Resources -->
+<main id="view-resources" hidden>
+  <section class="wrap hero">
+    <span class="eyebrow">Resource library</span>
+    <h1 id="res-titel">Resources</h1>
+    <p id="res-tekst"></p>
+  </section>
+  <div class="wrap"><ul class="cards" id="resources"></ul></div>
+</main>
+
+<div class="wrap">
+  <details class="demo" id="demo">
+    <summary>Achter de schermen: webhook-events van het CMS</summary>
+    <div class="inner" id="log"><p class="note">Nog geen events. Publiceer iets in de backoffice.</p></div>
+  </details>
+</div>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="logo" aria-hidden="true"><span>LLASER</span></div>
+        <p>Large LAnguage model Security &amp; Enhanced Resilience. A VLAIO TETRA project.</p>
+      </div>
+      <div><div class="eyebrow">Explore</div><ul><li>Guide</li><li>Resources</li><li>Awareness Academy</li><li>News</li></ul></div>
+      <div><div class="eyebrow">Project</div><ul><li>About LLASER</li><li>Partners</li><li>Contact</li><li>Privacy</li></ul></div>
+      <div><div class="eyebrow">Demo</div><ul><li>Content via de Content Stub</li><li>CMS: Umbraco 17</li></ul></div>
+    </div>
+    <div class="foot-bottom"><span>Funded by VLAIO · A project by PXL &amp; partners</span><span>© 2026 LLASER · POC-demo</span></div>
   </div>
-  <div class="panel">
-    <h2>Webhook-events</h2>
-    <div class="log" id="log"><p class="empty">Nog geen events. Publiceer iets in de backoffice.</p></div>
-    <p class="note">Wat het CMS bij publiceren meldt, vertaald naar ContentPublished / ContentUnpublished. Ververst elke 5 s.</p>
-  </div>
-</section>
+</footer>
 
 <script>
-// "Save and preview" in de backoffice opent deze pagina met ?preview=1&taal=..&stap=..
-// Zelf navigeren gebruikt ?guide=..&stap=.. zodat herladen dezelfde plek toont.
+// Navigatie via de query: ?view=resources | ?guide=..&stap=.. ; "Save and preview" opent ?preview=1&taal=..&stap=..
 const params = new URLSearchParams(location.search);
 const preview = params.get("preview") === "1";
-const state = { taal: params.get("taal") === "en" ? "en" : "nl", lid: preview, guideId: params.get("guide"), stapId: params.get("stap") };
+const state = {
+  taal: params.get("taal") === "en" ? "en" : "nl",
+  lid: preview,
+  view: params.get("view") === "resources" ? "resources" : "guide",
+  guideId: params.get("guide"),
+  stapId: params.get("stap"),
+  guide: null,        // geladen Guide (voor zijbalk, voortgang, vorige/volgende)
+  open: new Set(),    // opengeklapte hoofdstukken
+};
 const objectUrls = [];
-// In preview gaan guides, stappen en media via /preview (concepten); Resources blijven de gepubliceerde.
 const basis = (path) => preview && !path.startsWith("/resources") ? "/preview" + path : path;
 
 function headers() { return state.lid ? { "X-Mock-Lid": "true" } : {}; }
@@ -207,7 +275,7 @@ async function api(path) {
   const r = await fetch(basis(path) + (path.includes("?") ? "&" : "?") + "taal=" + state.taal, { headers: headers() });
   return { status: r.status, body: r.headers.get("content-type")?.includes("json") ? await r.json() : null };
 }
-// Media gaat via de stub en vraagt dezelfde lezer-header, dus als blob ophalen in plaats van een gewone <img src>.
+// Media uit blokken gaat via de stub met de lezer-header, dus als blob.
 async function mediaUrl(path) {
   const r = await fetch(basis(path), { headers: headers() });
   if (!r.ok) return null;
@@ -223,125 +291,184 @@ function el(tag, attrs = {}, ...kids) {
   for (const kid of kids.flat()) if (kid != null) e.append(kid);
   return e;
 }
+function icon(id, size = 14) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("width", size); s.setAttribute("height", size); s.setAttribute("aria-hidden", "true");
+  const u = document.createElementNS("http://www.w3.org/2000/svg", "use"); u.setAttribute("href", "#" + id); s.append(u);
+  return s;
+}
 const t = (nl, en) => state.taal === "en" ? en : nl;
-const lock = () => el("span", { class: "tag lock" }, t("leden", "members"));
-const vertaling = (item) => item.taal !== state.taal ? el("span", { class: "tag lang", title: t("Nog niet vertaald", "Not translated yet") }, item.taal.toUpperCase()) : null;
+const ledenTag = () => el("span", { class: "tag lock" }, icon("i-lock", 11), t("Leden", "Members"));
+const taalTag = (item) => item.taal !== state.taal ? el("span", { class: "tag lang", title: t("Nog niet vertaald", "Not translated yet") }, item.taal.toUpperCase()) : null;
 
 function bewaarUrl() {
   const p = new URLSearchParams();
   if (preview) p.set("preview", "1");
   p.set("taal", state.taal);
-  if (state.guideId) p.set("guide", state.guideId);
-  if (state.stapId) p.set("stap", state.stapId);
+  if (state.view === "resources") p.set("view", "resources");
+  else { if (state.guideId) p.set("guide", state.guideId); if (state.stapId) p.set("stap", state.stapId); }
   history.replaceState(null, "", "?" + p);
+}
+function toonView(naam) {
+  document.getElementById("view-home").hidden = naam !== "home";
+  document.getElementById("view-guide").hidden = naam !== "guide";
+  document.getElementById("view-resources").hidden = naam !== "resources";
+  document.getElementById("nav-guide").setAttribute("aria-current", naam === "resources" ? "false" : "page");
+  document.getElementById("nav-resources").setAttribute("aria-current", naam === "resources" ? "page" : "false");
+  window.scrollTo(0, 0);
+}
+function zetTeksten() {
+  document.documentElement.lang = state.taal;
+  document.getElementById("signin-label").textContent = state.lid ? t("Afmelden (Lid)", "Sign out (member)") : "Sign in";
+  document.getElementById("terug-label").textContent = t("Guide-overzicht", "Guide overview");
+  document.getElementById("otp-label").textContent = t("Op deze pagina", "On this page");
+  document.getElementById("prog-label").textContent = t("Voortgang", "Progress");
+  document.getElementById("home-eyebrow").textContent = "Best-practice guide";
+  document.getElementById("home-titel").textContent = t("Veilig werken met LLM's", "Working safely with LLMs");
+  document.getElementById("home-tekst").textContent = t(
+    "Kies een Guide. Elke Guide leidt je stap voor stap door een veilige LLM-integratie.",
+    "Choose a guide. Each guide takes you step by step through a secure LLM integration.");
+  document.getElementById("res-titel").textContent = "Resources";
+  document.getElementById("res-tekst").textContent = t(
+    "Documenten en links bij de Guide. Sommige zijn enkel voor leden.",
+    "Documents and links that go with the guide. Some are for members only.");
 }
 
 // ---------- overzicht ----------
 
 async function toonOverzicht() {
-  document.getElementById("view-home").hidden = false;
-  document.getElementById("view-guide").hidden = true;
-  document.getElementById("home-titel").textContent = t("Best-practice guides", "Best-practice guides");
-  document.getElementById("home-tekst").textContent = t(
-    "Kies een Guide. Nieuwe Guides maak je in de backoffice, in de root van Content.",
-    "Choose a guide. New guides are created in the backoffice, at the root of Content.");
+  state.view = "guide"; state.guideId = null; state.stapId = null; bewaarUrl();
+  toonView("home");
   const { body: guides } = await api("/guides");
   const lijst = document.getElementById("guides");
   if (!guides?.length) { lijst.replaceChildren(el("li", { class: "note" }, t("Nog geen gepubliceerde Guides.", "No published guides yet."))); return; }
-  lijst.replaceChildren(...guides.map(g => el("li", {}, el("button", { type: "button", class: "guide-card", onclick: () => openGuide(g.id) },
-    el("span", { class: "meta" }, "Guide", vertaling(g)),
+  lijst.replaceChildren(...guides.map(g => el("li", {}, el("button", { type: "button", class: "card", onclick: () => openGuide(g.id) },
+    el("div", { class: "tags" }, el("span", { class: "tag" }, "Guide"), taalTag(g)),
     el("h2", {}, g.titel),
-    g.intro ? el("p", {}, g.intro) : null))));
+    g.intro ? el("p", {}, g.intro) : null,
+    el("div", { class: "foot" }, el("span", {}, t("Open de Guide", "Open the guide")), icon("i-arrow", 16))))));
 }
 
 // ---------- één Guide ----------
 
+const alleStappen = () => (state.guide?.hoofdstukken ?? []).flatMap((h, hi) => h.stappen.map((s, si) => ({ ...s, nr: `${hi + 1}.${si + 1}`, hoofdstuk: h, hi })));
+
 async function openGuide(id, stapId = null) {
-  state.guideId = id;
-  state.stapId = stapId;
-  bewaarUrl();
-  document.getElementById("view-home").hidden = true;
-  document.getElementById("view-guide").hidden = false;
-  await laadGuide();
+  state.view = "guide"; state.guideId = id; state.stapId = stapId;
+  toonView("guide");
+  const { status, body: g } = await api("/guides/" + id);
+  if (status !== 200) { document.getElementById("reader").replaceChildren(el("p", { class: "error" }, t("Guide niet gevonden.", "Guide not found."))); return; }
+  state.guide = g;
+  if (!state.stapId) state.stapId = alleStappen()[0]?.id ?? null;
+  const huidig = alleStappen().find(s => s.id === state.stapId);
+  state.open = new Set([huidig ? huidig.hi : 0]);
+  tekenZijbalk();
   if (state.stapId) await toonStap(state.stapId);
+  else document.getElementById("reader").replaceChildren(el("p", { class: "note" }, t("Deze Guide heeft nog geen gepubliceerde stappen.", "This guide has no published steps yet.")));
 }
 
-async function laadGuide() {
-  const { status, body: g } = await api("/guides/" + state.guideId);
-  if (status !== 200) { document.getElementById("guide-titel").textContent = t("Guide niet gevonden", "Guide not found"); return; }
+function tekenZijbalk() {
+  const g = state.guide;
   document.getElementById("guide-titel").textContent = g.titel;
-  document.getElementById("guide-intro").textContent = g.intro ?? "";
-  document.getElementById("hoofdstukken").replaceChildren(...g.hoofdstukken.map((h, hi) =>
-    el("section", { class: "chapter" },
-      el("h2", {}, `${hi + 1}. ${h.titel}`, h.afgeschermd ? lock() : null, vertaling(h)),
-      el("ol", {}, h.stappen.map((s, si) =>
-        el("li", {}, el("button", {
-          type: "button", class: "step", id: "stap-" + s.id, "aria-current": String(s.id === state.stapId),
-          onclick: () => toonStap(s.id),
-        }, el("span", { class: "n" }, `${hi + 1}.${si + 1}`), el("span", {}, s.titel), s.afgeschermd ? lock() : null, vertaling(s))))))));
-  if (!state.stapId) {
-    const eerste = g.hoofdstukken.find(h => h.stappen.length)?.stappen[0];
-    if (eerste) state.stapId = eerste.id;
-  }
-  if (!g.hoofdstukken.length) document.getElementById("reader").replaceChildren(el("p", { class: "crumb" }, t("Deze Guide heeft nog geen gepubliceerde hoofdstukken.", "This guide has no published chapters yet.")));
+  document.getElementById("hoofdstukken").replaceChildren(...g.hoofdstukken.map((h, hi) => {
+    const open = state.open.has(hi);
+    return el("li", { class: "chapter" + (open ? " open" : "") },
+      el("button", { type: "button", "aria-expanded": String(open), onclick: () => { open ? state.open.delete(hi) : state.open.add(hi); tekenZijbalk(); } },
+        el("span", { class: "num" }, String(hi + 1)), el("span", {}, h.titel), h.afgeschermd ? icon("i-lock", 12) : null, taalTag(h), (() => { const c = icon("i-chev", 14); c.classList.add("chev"); return c; })()),
+      open ? el("ol", { class: "steps" }, h.stappen.map((s, si) =>
+        el("li", {}, el("button", { type: "button", class: "stepbtn", "aria-current": String(s.id === state.stapId), onclick: () => toonStap(s.id) },
+          el("span", { class: "dot" }), el("span", { class: "nr" }, `${hi + 1}.${si + 1}`), el("span", {}, s.titel), taalTag(s),
+          s.afgeschermd ? (() => { const l = icon("i-lock", 12); l.classList.add("lock-i"); return l; })() : null)))) : null);
+  }));
 }
 
 async function toonStap(id) {
-  state.stapId = id;
-  bewaarUrl();
-  document.querySelectorAll(".step").forEach(b => b.setAttribute("aria-current", String(b.id === "stap-" + id)));
+  state.stapId = id; bewaarUrl();
+  const plek = alleStappen().find(s => s.id === id);
+  if (plek && !state.open.has(plek.hi)) state.open.add(plek.hi);
+  tekenZijbalk();
   const reader = document.getElementById("reader");
   const { status, body: s } = await api("/guide/stappen/" + id);
   if (!s) { reader.replaceChildren(el("p", { class: "error" }, t(`Kon de stap niet laden (HTTP ${status}).`, `Could not load the step (HTTP ${status}).`))); return; }
 
   const kop = [
-    el("p", { class: "crumb" }, s.hoofdstuk.titel, s.toegangsniveau === "leden" ? lock() : null,
-      s.taal !== s.gevraagdeTaal ? el("span", { class: "tag lang" }, t("Nog niet vertaald, NL-versie", "Not translated yet, showing Dutch")) : null,
-      el("span", {}, `HTTP ${status}`)),
+    el("nav", { class: "crumbs", "aria-label": t("Kruimelpad", "Breadcrumb") },
+      el("button", { type: "button", onclick: toonOverzicht }, "Guide"), "/", el("span", {}, `${plek ? plek.hi + 1 : ""} ${s.hoofdstuk.titel}`), "/", el("span", {}, s.titel)),
+    el("div", { class: "meta" },
+      el("span", { class: "eyebrow" }, `${t("Stap", "Step")} ${plek?.nr ?? ""}`),
+      s.toegangsniveau === "leden" ? ledenTag() : null,
+      s.taal !== s.gevraagdeTaal ? el("span", { class: "tag lang" }, t("Nog niet vertaald · NL", "Not translated yet · NL")) : null),
     el("h1", {}, s.titel),
     el("p", { class: "lede" }, s.samenvatting),
   ];
 
+  let inhoud;
   if (s.afgeschermd) {
-    reader.replaceChildren(...kop, el("div", { class: "teaser" },
-      el("strong", {}, t("Enkel voor leden. ", "Members only. ")),
-      t("Een Bezoeker ziet enkel de titel en samenvatting; de blokken komen niet mee uit de stub.",
-        "A visitor only sees the title and summary; the blocks are not sent by the stub."),
-      el("div", {}, el("button", { type: "button", class: "btn", onclick: () => zetLezer(true) }, t("Bekijk als lid", "View as member")))));
-    return;
+    inhoud = el("div", { class: "teaser" },
+      el("span", { class: "eyebrow" }, icon("i-lock", 12), t("Enkel voor leden", "Members only")),
+      el("p", {}, t("Deze stap is enkel zichtbaar voor aangemelde leden. Een bezoeker ziet de titel en samenvatting; de inhoud wordt niet eens doorgestuurd.",
+        "This step is only visible to signed-in members. A visitor sees the title and summary; the content is not even sent.")),
+      el("button", { type: "button", class: "btn", onclick: () => zetLezer(true) }, icon("i-user", 16), "Sign in"));
+  } else {
+    const blokken = await Promise.all((s.blokken ?? []).map(async b => {
+      if (b.type === "tekst") { const d = el("div"); d.innerHTML = b.html; return d; } // HTML van het CMS (vertrouwde editors)
+      if (b.type === "afbeelding") {
+        const src = await mediaUrl(b.url);
+        return el("figure", {}, src ? el("img", { src, alt: b.alt }) : el("p", { class: "error" }, t("Afbeelding niet beschikbaar", "Image not available")),
+          b.bijschrift ? el("figcaption", {}, b.bijschrift) : null);
+      }
+      if (b.type === "callout") {
+        const label = { tip: "Tip", waarschuwing: t("Waarschuwing", "Warning"), info: "Info" }[b.soort] ?? b.soort;
+        return el("div", { class: "callout " + b.soort, role: "note" }, el("span", { class: "eyebrow" }, label), el("p", {}, b.tekst));
+      }
+      return null;
+    }));
+    inhoud = el("div", { class: "body" }, blokken);
   }
 
-  const blokken = await Promise.all((s.blokken ?? []).map(async b => {
-    if (b.type === "tekst") { const d = el("div"); d.innerHTML = b.html; return d; } // HTML komt van het CMS (vertrouwde editors)
-    if (b.type === "afbeelding") {
-      const src = await mediaUrl(b.url);
-      return el("figure", {}, src ? el("img", { src, alt: b.alt }) : el("p", { class: "error" }, t("Afbeelding niet beschikbaar", "Image not available")),
-        b.bijschrift ? el("figcaption", {}, b.bijschrift) : null);
-    }
-    if (b.type === "callout") {
-      const label = { tip: "Tip", waarschuwing: t("Waarschuwing", "Warning"), info: "Info" }[b.soort] ?? b.soort;
-      return el("div", { class: "callout " + b.soort, role: "note" }, el("b", {}, label), el("span", {}, b.tekst));
-    }
-    return null;
-  }));
-  reader.replaceChildren(...kop, el("div", { class: "body" }, blokken));
+  // vorige / volgende
+  const stappen = alleStappen(); const i = stappen.findIndex(x => x.id === id);
+  const vorige = stappen[i - 1], volgende = stappen[i + 1];
+  const pager = el("div", { class: "pager" },
+    vorige ? el("button", { type: "button", class: "btn outline", onclick: () => toonStap(vorige.id) }, icon("i-arrow-l", 16), `${vorige.nr} ${vorige.titel}`) : null,
+    volgende ? el("button", { type: "button", class: "btn next", onclick: () => toonStap(volgende.id) }, `${t("Volgende", "Next")}: ${volgende.nr} ${volgende.titel}`, icon("i-arrow", 16)) : null);
+
+  reader.replaceChildren(...kop, inhoud, pager);
+  tekenRail(i, stappen.length);
 }
 
-// ---------- resources en webhook-log ----------
+function tekenRail(index, totaal) {
+  const koppen = [...document.querySelectorAll("#reader .body h2")];
+  koppen.forEach((h, n) => h.id = "sectie-" + (n + 1));
+  document.getElementById("otp").replaceChildren(...(koppen.length
+    ? koppen.map((h, n) => el("li", {}, el("a", { href: "#" + h.id, class: n === 0 ? "active" : "" }, h.textContent)))
+    : [el("li", { class: "note" }, "–")]));
+  document.getElementById("prog-tekst").textContent = index >= 0 ? `${t("Stap", "Step")} ${index + 1} ${t("van", "of")} ${totaal}` : "";
+  document.getElementById("prog-bar").style.width = index >= 0 ? `${((index + 1) / totaal) * 100}%` : "0";
+}
 
-async function laadResources() {
+// ---------- resources ----------
+
+async function toonResources() {
+  state.view = "resources"; bewaarUrl();
+  toonView("resources");
   const { body: lijst } = await api("/resources");
-  document.getElementById("resources").replaceChildren(...(lijst ?? []).map(r =>
-    el("li", { class: "resource" },
-      el("div", { class: "top" }, el("h3", {}, r.titel), el("span", { class: "kind" }, r.soort === "document" ? "PDF" : "link")),
+  document.getElementById("resources").replaceChildren(...(lijst ?? []).map(r => {
+    const open = async () => {
+      if (r.afgeschermd) return zetLezer(true);
+      if (r.url) return window.open(r.url, "_blank", "noopener");
+      if (r.bestandUrl) { const u = await mediaUrl(r.bestandUrl); if (u) window.open(u, "_blank"); }
+    };
+    return el("li", {}, el("button", { type: "button", class: "card", onclick: open },
+      el("div", { class: "tags" }, el("span", { class: "tag" }, r.soort === "document" ? "Document" : "Link"), r.afgeschermd || r.toegangsniveau === "leden" ? ledenTag() : null, taalTag(r)),
+      el("h3", {}, r.titel),
       r.beschrijving ? el("p", {}, r.beschrijving) : null,
-      el("div", { class: "top" },
-        r.afgeschermd ? lock()
-          : r.url ? el("a", { href: r.url, target: "_blank", rel: "noopener" }, t("Openen", "Open"))
-          : r.bestandUrl ? el("button", { type: "button", class: "link", onclick: async () => { const u = await mediaUrl(r.bestandUrl); if (u) window.open(u, "_blank"); } }, "Download PDF")
-          : null,
-        vertaling(r)))));
+      el("div", { class: "foot res-foot" }, el("span", {}, r.soort === "document" ? "PDF" : t("Externe link", "External link")),
+        r.afgeschermd ? icon("i-lock", 16) : icon("i-arrow", 16))));
+  }));
 }
+
+// ---------- webhook-log ----------
 
 async function laadLog() {
   try {
@@ -349,7 +476,7 @@ async function laadLog() {
     if (!events.length) return;
     document.getElementById("log").replaceChildren(el("table", {},
       el("thead", {}, el("tr", {}, el("th", {}, "Tijd"), el("th", {}, "Event"), el("th", {}, "Content"), el("th", {}, "Talen"))),
-      el("tbody", {}, events.slice(0, 8).map(e => el("tr", { class: e.duplicaat ? "dup" : "" },
+      el("tbody", {}, events.slice(0, 10).map(e => el("tr", { class: e.duplicaat ? "dup" : "" },
         el("td", {}, new Date(e.ontvangen).toLocaleTimeString("nl-BE")),
         el("td", { class: e.soort === "ContentPublished" ? "ev-pub" : "ev-unpub" }, e.soort + (e.duplicaat ? " (duplicaat)" : "")),
         el("td", {}, e.contentId.slice(0, 8)),
@@ -359,27 +486,27 @@ async function laadLog() {
 
 // ---------- bediening ----------
 
-function zetPressed(groep, waarde) {
-  document.querySelectorAll(`#${groep} button`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.taal === waarde || b.dataset.lid === waarde)));
-}
 async function herlaad() {
   objectUrls.splice(0).forEach(URL.revokeObjectURL);
-  bewaarUrl();
-  await Promise.all([state.guideId ? openGuide(state.guideId, state.stapId) : toonOverzicht(), laadResources()]);
+  zetTeksten();
+  document.querySelectorAll("#taal-control button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.taal === state.taal)));
+  if (state.view === "resources") await toonResources();
+  else if (state.guideId) await openGuide(state.guideId, state.stapId);
+  else await toonOverzicht();
 }
-function zetLezer(lid) { state.lid = lid; zetPressed("lezer-control", String(lid)); herlaad(); }
+function zetLezer(lid) { if (preview) return; state.lid = lid; herlaad(); }
 
-document.querySelectorAll("#taal-control button").forEach(b => b.addEventListener("click", () => { state.taal = b.dataset.taal; zetPressed("taal-control", state.taal); herlaad(); }));
-document.querySelectorAll("#lezer-control button").forEach(b => b.addEventListener("click", () => zetLezer(b.dataset.lid === "true")));
-document.getElementById("terug").addEventListener("click", () => { state.guideId = null; state.stapId = null; bewaarUrl(); toonOverzicht(); });
+document.querySelectorAll("#taal-control button").forEach(b => b.addEventListener("click", () => { state.taal = b.dataset.taal; herlaad(); }));
+document.getElementById("signin").addEventListener("click", () => zetLezer(!state.lid));
+document.getElementById("logo").addEventListener("click", toonOverzicht);
+document.getElementById("nav-guide").addEventListener("click", toonOverzicht);
+document.getElementById("nav-resources").addEventListener("click", toonResources);
+document.getElementById("terug").addEventListener("click", toonOverzicht);
 
 async function start() {
-  zetPressed("taal-control", state.taal);
-  zetPressed("lezer-control", String(state.lid));
   if (preview) {
     document.getElementById("preview-banner").hidden = false;
-    document.getElementById("lezer-control").hidden = true;
-    // Preview van een stap: de Guide waar hij in zit openen
+    document.getElementById("signin").hidden = true;
     if (state.stapId && !state.guideId) {
       const { body: s } = await api("/guide/stappen/" + state.stapId);
       if (s?.guide) state.guideId = s.guide.id;
