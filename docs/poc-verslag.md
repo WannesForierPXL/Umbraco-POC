@@ -204,7 +204,8 @@ Bevindingen per stap van de Umbraco-POC voor LLASER. Scoren gebeurt volgens [cri
 - **Tijd:** ±45 min
 - **Aanleiding:** "Save and preview" in de backoffice gaf "No template exists to render the document". Umbraco wil standaard een eigen Razor-template tonen; headless is er geen.
 - **Wat gedaan:**
-  - `src/Llaser.Cms/Preview/HeadlessPreviewUrlProvider.cs`: eigen `IUrlProvider` met `GetPreviewUrlAsync` (bestaat in v17). De preview-knop opent nu `https://localhost:5001/?preview=1&taal=en&stap={id}`. ±40 regels.
+  - `src/Llaser.Cms/Preview/HeadlessPreviewUrlProvider.cs`: eigen `IUrlProvider` met `GetPreviewUrlAsync` (bestaat in v17), die `https://localhost:5001/?preview=1&taal=en&stap={id}` teruggeeft. ±40 regels.
+  - `src/Llaser.Cms/App_Plugins/LlaserPreview/umbraco-package.json`: een backoffice-manifest (`workspaceActionMenuItem`, kind `previewOption`) dat die provider als preview-knop toevoegt. Zonder dit manifest vraagt de backoffice enkel de standaardprovider `umbDocumentUrlProvider` en blijft de eigen provider onzichtbaar. Dat stond nergens duidelijk; gevonden in de backoffice-broncode.
   - Stub: `/preview/guide`, `/preview/guide/stappen/{id}` en `/preview/media/{id}`, met dezelfde adapter en regels maar de Delivery API-header `Preview: true` (concepten). **Enkel in Development**: in productie moet de BFF eerst nagaan dat de gebruiker een Editor is.
   - Demopagina: in preview-modus een balk "Voorvertoning", altijd als Lid.
 - **Wat werkte:** een opgeslagen maar niet gepubliceerde stap is meteen zichtbaar in de preview met alle blokken; de publieke route geeft er een 404 voor.
