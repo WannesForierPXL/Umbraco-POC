@@ -3,11 +3,6 @@
 Proof of concept voor de CMS-keuze van LLASER (PXL IT Project 2026-27), naast een Payload-POC.
 Umbraco 17 (LTS) als headless CMS, met een kleine Content Service (`Llaser.ContentStub`) en een demopagina in de LLASER-look.
 
-- Bevindingen, scores en conclusie: [docs/poc-verslag.md](docs/poc-verslag.md)
-- Demo voor de Klant: [docs/demoscript.md](docs/demoscript.md)
-- Contentmodel en API (gedeeld met Payload): [docs/contentmodel.md](docs/contentmodel.md)
-- Beoordelingscriteria: [docs/criteria.md](docs/criteria.md)
-- Werkwijze en beslissingen: [CLAUDE.md](CLAUDE.md) en de [Wayfinder-map](https://github.com/WannesForierPXL/Umbraco-POC/issues/1)
 
 ## Lokaal opzetten
 
@@ -65,10 +60,6 @@ In de backoffice:
 1. Kies boven de contentboom de taal **Dutch (Belgium)**; nieuwe items openen dan in het Nederlands.
 2. Open **Content → Guides → Veilig LLM's integreren** en bewerk een stap.
 3. **Save and preview** opent de demopagina met je niet-gepubliceerde wijziging; **Publish** zet ze online (herlaad de demopagina).
-
-De flow voor de Klant staat in [docs/demoscript.md](docs/demoscript.md).
-
-> **Lokale demowaarden.** Wachtwoorden en sleutels (admin-login, SQL Server, API-key, webhook-secret) staan bewust vast in `appsettings.Development.json` en `docker-compose.yml`, zodat de POC zonder setup start. Dat kan enkel omdat alles lokaal draait. Gebruik ze nooit voor een gedeelde of online omgeving.
 
 ## Een nieuwe Guide maken
 
