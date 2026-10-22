@@ -12,9 +12,13 @@ Gedeeld tussen de Umbraco-POC en de Payload-POC. Beide bouwen **exact dit model*
 
 Volgorde van Hoofdstukken en Guide-stappen = volgorde in de contentboom (geen apart veld).
 
+### Guides (map)
+
+Eén map **Guides** in de root, zonder eigen velden (naam in NL en EN). Kinderen: Guides. Volgorde van de Guides = volgorde in de map.
+
 ### Guide (meerdere mogelijk)
 
-Elke Guide staat in de root van de contentboom; volgorde van de Guides = volgorde in de boom.
+Elke Guide staat in de map Guides.
 
 | Veld | Type | Per taal | Verplicht |
 |---|---|---|---|
@@ -140,7 +144,7 @@ Alle Resources staan in één map **Resource library**.
 
 Eén voorbeeld-Guide met content, zo gekozen dat elke regel in de demo zichtbaar wordt. De content gaat mee in de repo (Umbraco: uSync-content; Payload: seed-script).
 
-**Guide** "Veilig LLM's integreren" / "Integrating LLMs securely"
+**Guides** → **Guide** "Veilig LLM's integreren" / "Integrating LLMs securely"
 
 | Item | Toegangsniveau | Talen | Test |
 |---|---|---|---|

@@ -8,6 +8,10 @@ De content van de LLASER-website (resource library, nieuws, best-practice guide)
 Een best-practice guide rond veilige LLM-integraties, opgebouwd uit Hoofdstukken. Er kunnen meerdere Guides naast elkaar bestaan.
 _Avoid_: handleiding, user guide
 
+**Guides**:
+De map waarin alle Guides staan.
+_Avoid_: User Guides, guide library
+
 **Hoofdstuk**:
 Een thematische groep Guide-stappen binnen de Guide.
 _Avoid_: sectie, categorie
